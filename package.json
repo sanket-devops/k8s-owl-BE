@@ -1,0 +1,35 @@
+{
+  "name": "service-owl-be",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.ts",
+  "scripts": {
+    "start": "ts-node -T app.ts",
+    "dev": "nodemon -T app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "fastify": "node ./fastify-server/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.1.0",
+    "body-parser": "^1.20.0",
+    "boom": "^7.3.0",
+    "crypto-js": "^4.1.1",
+    "fastify": "^4.5.3",
+    "fastify-swagger": "^5.2.0",
+    "https": "^1.0.0",
+    "moment": "^2.29.4",
+    "mongoose": "^6.5.4",
+    "nodemailer": "^6.7.8",
+    "nodestorage": "^0.9.17",
+    "table": "^6.8.0",
+    "tcp-port-used": "^1.0.2",
+    "ts-node": "^10.9.1"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.0.1",
+    "nodemon": "^2.0.19",
+    "typescript": "^4.8.2"
+  },
+  "author": "",
+  "license": "ISC"
+}

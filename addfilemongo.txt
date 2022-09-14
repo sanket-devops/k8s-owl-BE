@@ -1,0 +1,20 @@
+/* https://mongoplayground.net/p/vSMFmBQOIrG */
+/* add file http: true, path: '/', method: 'GET', statuscode = 200 */
+/* NosqlBooster Qurry */
+
+const collection = 'service-hosts';
+
+let httpFalseArr = ["22", "6446", "3306", "27017", "2181", "9092", "6379", "6443", "587", "25"];
+
+db.getCollection(collection).find({}).forEach((it) => {
+    let ports = it.port || [];
+    for (let port of ports) {
+        port.path = '/';
+        port.method = 'GET';
+        port.statuscode = 200;
+        
+        if (httpFalseArr.indexOf(port.port.toString()) >= 0) port.http = false;
+        else port.http = true;
+    }
+    db.getCollection(collection).updateOne({ _id: it._id }, { $set: it });
+});
