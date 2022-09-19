@@ -9,7 +9,7 @@ COPY . .
 RUN cd /app && npm set progress=false && npm cache clear --force && npm install
 
 # Exposing port
-EXPOSE 8002
+EXPOSE 8008
 
 #CMD ["npm", "run", "start"]
 ENTRYPOINT npm run start
