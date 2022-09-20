@@ -82,9 +82,10 @@ app.get("/clusters", async (req, res) => {
 app.post("/clusters/cluster-save", async (req: any, res) => {
     try {
         // let tempData = JSON.parse(req.body.data);
-        let tempData = req.body;
+        let tempData = req.body.data;
         let saved = await k8sModel.create(tempData);
         res.send(saved);
+        getAllClusterData();
     } catch (e) {
         console.log(e);
         res.status(500);
@@ -111,6 +112,7 @@ app.put("/clusters/update", async (req: any, res) => {
             new: true,
             runValidator: true,
         });
+        getAllClusterData();
         res.send(post);
     } catch (e) {
         res.status(500);
@@ -145,8 +147,7 @@ const getDataFromCluster = async (_id) => {
             //   https://github.com/Goyoo/node-k8s-client
             let kubectl = await K8s.kubectl({
                 binary: "/usr/local/bin/kubectl",
-                kubeconfig: "./kubeconfigfiles/bynfor-v3-qa.yaml",
-                // ,kubeconfig: auth_token
+                kubeconfig: "./kubeconfigfiles/test3.yaml",
                 version: "/api/v1",
             });
             await kubectl.pod.list(function (err, pods) {
