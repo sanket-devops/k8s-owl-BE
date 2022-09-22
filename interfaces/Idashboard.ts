@@ -9,4 +9,5 @@ export interface ICluster {
   clusterName: string;
   envName: string;
   kubeConfig: string;
+  _id: string;
 }

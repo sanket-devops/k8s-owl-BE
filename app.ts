@@ -132,11 +132,11 @@ app.post("/clusters/cluster-delete", async (req: any, res) => {
 });
 
 let resData = <any>[];
-const getDataFromCluster = async (_id) => {
+const getDataFromCluster = async (groupId, clusterId) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
-            .find({ _id })
-            .select("ipAddress port clusterToken")
+            .find({ groupId })
+            .select("_id groupName clusters")
             .lean()
             .exec()
     );
@@ -145,42 +145,75 @@ const getDataFromCluster = async (_id) => {
     resDataPromiseArr.push(
         new Promise<void>(async (resolve, reject) => {
             //   https://github.com/Goyoo/node-k8s-client
-            let kubectl = await K8s.kubectl({
-                binary: "/usr/local/bin/kubectl",
-                kubeconfig: "./kubeconfigfiles/test3.yaml",
-                version: "/api/v1",
-            });
-            await kubectl.pod.list(function (err, pods) {
-                let Data = JSON.parse(JSON.stringify(pods));
-                // console.log(resData.items)
-                for (let index = 0; index < Data.items.length; index++) {
-                    // console.log(Data.items[index]);
-                    for (
-                        let indexOne = 0;
-                        indexOne < Data.items[index].status.containerStatuses.length;
-                        indexOne++
-                    ) {
-                        resData.push({
-                            NAME: Data.items[index].metadata.name,
-                            STATUS: Data.items[index].status.phase,
-                            RESTARTS: Data.items[index].status.containerStatuses[indexOne].restartCount,
-                            NODE: Data.items[index].spec.nodeName,
-                            AGE: Data.items[index].status.startTime,
-                            READY: Data.items[index].status.containerStatuses[indexOne].ready,
-                        });
-                        // console.log(resData);
-                    }
-                }
-            });
 
-            // kubectl.pod.logs('inventory-657978f645-622fn', function(err, log){
-            //     resData = JSON.parse(JSON.stringify(log));
-            //     console.log(resData)
-            // })
-            // kubectl.node.list(function(err, nodes){
-            //     resData = JSON.parse(JSON.stringify(nodes));
-            //     console.log(resData)
-            // })
+
+            for (let item = 0; item < allData.length; item++) {
+                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
+                    if (allData[item].clusters[clusterItem]._id === clusterId) {
+                        // console.log(allData[item].clusters[clusterItem]._id);
+                        let kubectl = await K8s.kubectl({
+                            binary: "/usr/local/bin/kubectl",
+                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
+                            version: "/api/v1",
+                        });
+                        await kubectl.pod.list(function (err, pods) {
+                            resData = [];
+                            try {
+                                let Data = JSON.parse(JSON.stringify(pods));
+                                // console.log(resData.items)
+                                for (let index = 0; index < Data.items.length; index++) {
+                                    // console.log(Data.items[index]);
+                                    for (
+                                        let indexOne = 0;
+                                        indexOne < Data.items[index].status.containerStatuses.length;
+                                        indexOne++
+                                    ) {
+                                        resData.push({
+                                            "APP": Data.items[index].metadata.labels.app,
+                                            "PNAME": Data.items[index].metadata.name,
+                                            "STATUS": Data.items[index].status.phase,
+                                            "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
+                                            "NODE": Data.items[index].spec.nodeName,
+                                            "AGE": Data.items[index].status.startTime,
+                                            "READY": Data.items[index].status.containerStatuses[indexOne].ready,
+                                        });
+                                        // console.log(resData);
+                                    }
+                                }
+                            } catch (err) {
+                                console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 404");
+                                resData.push({
+                                    "APP": "No Response",
+                                    "PNAME": "No Response",
+                                    "STATUS": "No Response",
+                                    "RESTARTS": "No Response",
+                                    "NODE": "No Response",
+                                    "AGE": "No Response",
+                                    "READY": "No Response",
+                                });
+                                console.error(err.error);
+                                resolve();
+                            }
+                        });
+
+                        // kubectl.pod.logs('inventory-657978f645-622fn', function(err, log){
+                        //     resData = JSON.parse(JSON.stringify(log));
+                        //     console.log(resData)
+                        // })
+                        // kubectl.node.list(function(err, nodes){
+                        //     resData = JSON.parse(JSON.stringify(nodes));
+                        //     console.log(resData)
+                        // })
+
+                    } else {
+
+                    }
+                    // console.log(allData[item].clusters[clusterItem]._id);
+                    // console.log(allData[item].clusters[clusterItem].kubeConfig);
+
+                }
+
+            }
             resolve();
         })
     );
@@ -188,10 +221,13 @@ const getDataFromCluster = async (_id) => {
     return resData;
 };
 
-app.get("/clusters/pods", async (req, res) => {
+app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
-        res.send(await getDataFromCluster("632377640efe8a8ba2c41293"));
-        console.log("Get pods Res: 200");
+        getAllClusterData();
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        res.send(await getDataFromCluster(groupId, clusterId));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
     } catch (e) {
         res.status(500);
     }
@@ -224,6 +260,6 @@ async function getAllClusterData() {
         await Promise.all(clustersPromiseArr);
     }
 }
-getAllClusterData();
+// getAllClusterData();
 
 module.exports = app;
