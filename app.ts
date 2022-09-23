@@ -205,8 +205,6 @@ const getDataFromCluster = async (groupId, clusterId) => {
                         //     console.log(resData)
                         // })
 
-                    } else {
-
                     }
                     // console.log(allData[item].clusters[clusterItem]._id);
                     // console.log(allData[item].clusters[clusterItem].kubeConfig);
@@ -220,6 +218,54 @@ const getDataFromCluster = async (groupId, clusterId) => {
     await Promise.all(resDataPromiseArr);
     return resData;
 };
+let resLogs = <any>[];
+const getLogsFromPod = async (groupId, clusterId, podName) => {
+    let allData: Idashboard[] = <any>(
+        await k8sModel
+            .find({ groupId })
+            .select("_id groupName clusters")
+            .lean()
+            .exec()
+    );
+    allData = JSON.parse(JSON.stringify(allData));
+    let resLogsPromiseArr: Promise<any>[] = [];
+    resLogsPromiseArr.push(
+        new Promise<void>(async (resolve, reject) => {
+            //   https://github.com/Goyoo/node-k8s-client
+
+
+            for (let item = 0; item < allData.length; item++) {
+                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
+                    if (allData[item].clusters[clusterItem]._id === clusterId) {
+                        // console.log(allData[item].clusters[clusterItem]._id);
+                        let kubectl = await K8s.kubectl({
+                            binary: "/usr/local/bin/kubectl",
+                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
+                            version: "/api/v1",
+                        });
+                        console.log(groupId, clusterId, podName)
+                        await kubectl.pod.logs(podName, function(err, log){
+                            resLogs = [];
+                            resLogs = JSON.parse(JSON.stringify(log));
+                            // console.log(resLogs);
+                        })
+
+                        // kubectl.node.list(function(err, nodes){
+                        //     resData = JSON.parse(JSON.stringify(nodes));
+                        //     console.log(resData)
+                        // })
+
+                    }
+
+                }
+
+            }
+            resolve();
+        })
+    );
+    await Promise.all(resLogsPromiseArr);
+    return resLogs;
+};
 
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
@@ -228,6 +274,19 @@ app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
         let clusterId = req.params.clusterId;
         res.send(await getDataFromCluster(groupId, clusterId));
         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+app.get("/clusters/:groupId/:clusterId/:podName", async (req: any, res) => {
+    try {
+        getAllClusterData();
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let podName = req.params.podName;
+        res.send(await getLogsFromPod(groupId, clusterId, podName));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Get pods Res: 200");
     } catch (e) {
         res.status(500);
     }
