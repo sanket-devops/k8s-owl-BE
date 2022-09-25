@@ -106,7 +106,8 @@ app.get("/clusters/:postId", async (req: any, res) => {
 //update
 app.put("/clusters/update", async (req: any, res) => {
     try {
-        let tempData = JSON.parse(req.body.data);
+        // let tempData = JSON.parse(req.body.data);
+        let tempData = req.body.data
         let id = req.body.id;
         let post = await k8sModel.findByIdAndUpdate({ _id: id }, tempData, {
             new: true,
@@ -160,23 +161,28 @@ const getDataFromCluster = async (groupId, clusterId) => {
                             resData = [];
                             try {
                                 let Data = JSON.parse(JSON.stringify(pods));
-                                // console.log(resData.items)
+                                // console.log(Data.items)
                                 for (let index = 0; index < Data.items.length; index++) {
                                     // console.log(Data.items[index]);
-                                    for (
-                                        let indexOne = 0;
-                                        indexOne < Data.items[index].status.containerStatuses.length;
-                                        indexOne++
-                                    ) {
-                                        resData.push({
-                                            "APP": Data.items[index].metadata.labels.app,
-                                            "PNAME": Data.items[index].metadata.name,
-                                            "STATUS": Data.items[index].status.phase,
-                                            "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
-                                            "NODE": Data.items[index].spec.nodeName,
-                                            "AGE": Data.items[index].status.startTime,
-                                            "READY": Data.items[index].status.containerStatuses[indexOne].ready,
-                                        });
+                                    resData.push({
+                                        "APP": Data.items[index].metadata.labels.app,
+                                        "PNAME": Data.items[index].metadata.name,
+                                        "STATUS": Data.items[index].status.phase,
+                                        // "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
+                                        "NODE": Data.items[index].spec.nodeName,
+                                        "AGE": Data.items[index].status.startTime,
+                                        // "READY": Data.items[index].status.containerStatuses[indexOne].ready,
+                                    });
+                                    for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
+                                        // resData.push({
+                                        //     "APP": Data.items[index].metadata.labels.app,
+                                        //     "PNAME": Data.items[index].metadata.name,
+                                        //     "STATUS": Data.items[index].status.phase,
+                                        //     "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
+                                        //     "NODE": Data.items[index].spec.nodeName,
+                                        //     "AGE": Data.items[index].status.startTime,
+                                        //     "READY": Data.items[index].status.containerStatuses[indexOne].ready,
+                                        // });
                                         // console.log(resData);
                                     }
                                 }
@@ -219,7 +225,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
     return resData;
 };
 let resLogs = <any>[];
-const getLogsFromPod = async (groupId, clusterId, podName) => {
+const getLogsFromPod48H = async (groupId, clusterId, podName) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
             .find({ groupId })
@@ -232,8 +238,6 @@ const getLogsFromPod = async (groupId, clusterId, podName) => {
     resLogsPromiseArr.push(
         new Promise<void>(async (resolve, reject) => {
             //   https://github.com/Goyoo/node-k8s-client
-
-
             for (let item = 0; item < allData.length; item++) {
                 for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
                     if (allData[item].clusters[clusterItem]._id === clusterId) {
@@ -244,11 +248,67 @@ const getLogsFromPod = async (groupId, clusterId, podName) => {
                             version: "/api/v1",
                         });
                         console.log(groupId, clusterId, podName)
-                        await kubectl.pod.logs(podName, function(err, log){
-                            resLogs = [];
-                            resLogs = JSON.parse(JSON.stringify(log));
-                            // console.log(resLogs);
-                        })
+                        try {
+                            await kubectl.pod.logs(`${podName} --since=48h`, function(err, log){
+                                resLogs = [];
+                                // resLogs = JSON.parse(JSON.stringify(log));
+                                resLogs = log;
+                                // console.log(resLogs);
+                            })
+                        } catch (error) {
+                            console.log(error); 
+                        }
+
+                        // kubectl.node.list(function(err, nodes){
+                        //     resData = JSON.parse(JSON.stringify(nodes));
+                        //     console.log(resData)
+                        // })
+
+                    }
+
+                }
+
+            }
+            resolve();
+        })
+    );
+    await Promise.all(resLogsPromiseArr);
+    return resLogs;
+};
+
+const getLogsFromPod72H = async (groupId, clusterId, podName) => {
+    let allData: Idashboard[] = <any>(
+        await k8sModel
+            .find({ groupId })
+            .select("_id groupName clusters")
+            .lean()
+            .exec()
+    );
+    allData = JSON.parse(JSON.stringify(allData));
+    let resLogsPromiseArr: Promise<any>[] = [];
+    resLogsPromiseArr.push(
+        new Promise<void>(async (resolve, reject) => {
+            //   https://github.com/Goyoo/node-k8s-client
+            for (let item = 0; item < allData.length; item++) {
+                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
+                    if (allData[item].clusters[clusterItem]._id === clusterId) {
+                        // console.log(allData[item].clusters[clusterItem]._id);
+                        let kubectl = await K8s.kubectl({
+                            binary: "/usr/local/bin/kubectl",
+                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
+                            version: "/api/v1",
+                        });
+                        console.log(groupId, clusterId, podName)
+                        try {
+                            await kubectl.pod.logs(`${podName} --since=72h`, function(err, log){
+                                resLogs = [];
+                                // resLogs = JSON.parse(JSON.stringify(log));
+                                resLogs = log;
+                                // console.log(resLogs);
+                            })
+                        } catch (error) {
+                            console.log(error); 
+                        }
 
                         // kubectl.node.list(function(err, nodes){
                         //     resData = JSON.parse(JSON.stringify(nodes));
@@ -279,13 +339,26 @@ app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:podName", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:podName/48H", async (req: any, res) => {
     try {
         getAllClusterData();
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
         let podName = req.params.podName;
-        res.send(await getLogsFromPod(groupId, clusterId, podName));
+        res.send(await getLogsFromPod48H(groupId, clusterId, podName));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Get pods Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+app.get("/clusters/:groupId/:clusterId/:podName/72H", async (req: any, res) => {
+    try {
+        getAllClusterData();
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let podName = req.params.podName;
+        res.send(await getLogsFromPod72H(groupId, clusterId, podName));
         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Get pods Res: 200");
     } catch (e) {
         res.status(500);
