@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: so-be
+  name: k8s-be
   labels:
-    app: so-be
+    app: k8s-be
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: so-be
+      app: k8s-be
   template:
     metadata:
       labels:
-        app: so-be
+        app: k8s-be
     spec:
       containers:
-        - name: so-be
-          image: service-owl:5000/service-owl-be:latest
+        - name: k8s-be
+          image: service-owl:5000/k8s-owl-be:latest
           imagePullPolicy: Always
           ports:
             - name: http-port
-              containerPort: 8002
+              containerPort: 8008
