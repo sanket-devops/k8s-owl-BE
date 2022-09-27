@@ -1,9 +1,14 @@
 ### STAGE 1: Build ###
 FROM node:16.15.1-alpine
 
+# Set workdir for working dir default path
 WORKDIR /app
 
+# Copy all project content to workdir
 COPY . .
+
+# Copy kubectl Binary to /usr/bin
+COPY kubectl /usr/bin
 
 # Install app dependencies
 RUN cd /app && npm set progress=false && npm cache clear --force && npm install
@@ -13,10 +18,3 @@ EXPOSE 8008
 
 #CMD ["npm", "run", "start"]
 ENTRYPOINT npm run start
-
-## docker file build ##
-
-# docker build -t service-owl-be:latest .
-
-# docker rm -f service-owl-be && docker run --name service-owl-be -p 8002:8002 --net=host service-owl-be:latest
-

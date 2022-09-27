@@ -9,6 +9,8 @@ import * as https from "https";
 import K8s from "k8s";
 import fs from "fs";
 
+
+let k8sBinary: any = 'kubectl';
 process.on("unhandledRejection", (error: Error, promise) => {
     console.log(error);
 });
@@ -153,7 +155,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
                     if (allData[item].clusters[clusterItem]._id === clusterId) {
                         // console.log(allData[item].clusters[clusterItem]._id);
                         let kubectl = await K8s.kubectl({
-                            binary: "/usr/local/bin/kubectl",
+                            binary: k8sBinary,
                             kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
                             version: "/api/v1",
                         });
@@ -244,7 +246,7 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
                     if (allData[item].clusters[clusterItem]._id === clusterId) {
                         // console.log(allData[item].clusters[clusterItem]._id);
                         let kubectl = await K8s.kubectl({
-                            binary: "/usr/local/bin/kubectl",
+                            binary: k8sBinary,
                             kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
                             version: "/api/v1",
                         });
