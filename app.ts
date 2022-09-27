@@ -33,8 +33,8 @@ const bodyParser = require("body-parser");
 const hostname = "0.0.0.0";
 const port = 8008;
 let k8sModel = require("./k8s.model");
-// let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-api-BE?authSource=admin';
-let db = "mongodb://admin:admin@192.168.10.166:32717/k8s-api-BE?authSource=admin";
+let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-owl?authSource=admin';
+// let db = "mongodb://admin:admin@192.168.10.166:32717/k8s-api-BE?authSource=admin";
 // let db = 'mongodb://localhost:27017/k8s-api-BE?authSource=admin';
 let allData = [];
 let nodemailer = require("nodemailer");
@@ -51,7 +51,7 @@ mongoose
     .catch(console.error);
 
 app.listen({ port: port, host: hostname }, function () {
-    console.log(`k8s-api-BE app listen at : http://${hostname}:${port}`);
+    console.log(`k8s-owl-BE app listen at : http://${hostname}:${port}`);
 });
 
 // function getEncryptedData(data: any) {
