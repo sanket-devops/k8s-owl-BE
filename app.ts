@@ -166,25 +166,23 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                 // console.log(Data.items)
                                 for (let index = 0; index < Data.items.length; index++) {
                                     // console.log(Data.items[index]);
-                                    resData.push({
-                                        "APP": Data.items[index].metadata.labels.app,
-                                        "PNAME": Data.items[index].metadata.name,
-                                        "STATUS": Data.items[index].status.phase,
-                                        // "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
-                                        "NODE": Data.items[index].spec.nodeName,
-                                        "AGE": Data.items[index].status.startTime,
-                                        // "READY": Data.items[index].status.containerStatuses[indexOne].ready,
-                                    });
+                                    // resData.push({
+                                    //     "APP": Data.items[index].metadata.labels.app,
+                                    //     "PNAME": Data.items[index].metadata.name,
+                                    //     "STATUS": Data.items[index].status.phase,
+                                    //     "NODE": Data.items[index].spec.nodeName,
+                                    //     "AGE": Data.items[index].status.startTime,
+                                    // });
                                     for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
-                                        // resData.push({
-                                        //     "APP": Data.items[index].metadata.labels.app,
-                                        //     "PNAME": Data.items[index].metadata.name,
-                                        //     "STATUS": Data.items[index].status.phase,
-                                        //     "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
-                                        //     "NODE": Data.items[index].spec.nodeName,
-                                        //     "AGE": Data.items[index].status.startTime,
-                                        //     "READY": Data.items[index].status.containerStatuses[indexOne].ready,
-                                        // });
+                                        console.log(Data.items[index].status.containerStatuses[indexOne]);
+                                        resData.push({
+                                            "APP": Data.items[index].status.containerStatuses[indexOne].name,
+                                            "PNAME": Data.items[index].metadata.name,
+                                            "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
+                                            "NODE": Data.items[index].spec.nodeName,
+                                            "AGE": Data.items[index].status.startTime,
+                                            "READY": Data.items[index].status.containerStatuses[indexOne].ready,
+                                        });
                                         // console.log(resData);
                                     }
                                 }
