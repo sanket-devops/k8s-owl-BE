@@ -243,17 +243,15 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
                         });
                         try {
                             if (h) {
-                                await kubectl.pod.logs(`${podName} --since=${h}`, function(err, log){
+                                await kubectl.pod.logs(`${podName} --since=${h}`).then(function(log){
                                     resLogs = [];
-                                    // resLogs = JSON.parse(JSON.stringify(log));
                                     resLogs = log;
-                                })
+                                }).catch(function(err){console.log(err)});
                             } else {
-                                await kubectl.pod.logs(`${podName}`, function(err, log){
+                                await kubectl.pod.logs(`${podName}`).then(function(log){
                                     resLogs = [];
-                                    // resLogs = JSON.parse(JSON.stringify(log));
                                     resLogs = log;
-                                })
+                                }).catch(function(err){console.log(err)});
                             }
                         } catch (error) {
                             console.log(error); 
@@ -263,7 +261,6 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
                         //     resData = JSON.parse(JSON.stringify(nodes));
                         //     console.log(resData)
                         // })
-
                     }
 
                 }
@@ -277,7 +274,7 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
 };
 let appLogs = <any>[];
 
-const getLogsFromApp = async (groupId, clusterId, appName, lines?: number) => {
+const getLogsFromApp = async (groupId, clusterId, appName?, lines?: number) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
             .find({ groupId })
@@ -299,29 +296,25 @@ const getLogsFromApp = async (groupId, clusterId, appName, lines?: number) => {
                             kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
                             version: "/api/v1",
                         });
-                        console.log(groupId, clusterId, appName)
                         try {
                             if (lines) {
-                                await kubectl.pod.logs(`--tail=${lines} -lapp=${appName}`, function(err, log){
+                                console.log(appName)
+                                await kubectl.pod.logs(`--tail=${lines} -lapp=${appName}`).then(function(log){
                                     appLogs = [];
-                                    // resLogs = JSON.parse(JSON.stringify(log));
                                     appLogs = log;
-                                })
+                                }).catch(function(err){console.log(err)});
                             } else {
-                                await kubectl.pod.logs(`--tail=-1 -lapp=${appName}`, function(err, log){
-                                    appLogs = [];
-                                    // resLogs = JSON.parse(JSON.stringify(log));
-                                    appLogs = log;
-                                })
+                                await kubectl.pod.logs(`--tail=-1 -lapp=${appName}`).then(function(log){
+                                    // appLogs = [];
+                                    // appLogs = log;
+                                    console.log("Full logs")
+                                }).catch(function(err){console.log(err)});
                             }
                         } catch (error) {
                             console.log(error); 
                         }
-
                     }
-
                 }
-
             }
             resolve();
         })
