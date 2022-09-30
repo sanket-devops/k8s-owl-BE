@@ -274,7 +274,7 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
 };
 let appLogs = <any>[];
 
-const getLogsFromApp = async (groupId, clusterId, appName?, lines?: number) => {
+const getLogsFromApp = async (groupId, clusterId, appName?, lines?) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
             .find({ groupId })
@@ -298,16 +298,14 @@ const getLogsFromApp = async (groupId, clusterId, appName?, lines?: number) => {
                         });
                         try {
                             if (lines) {
-                                console.log(appName)
                                 await kubectl.pod.logs(`--tail=${lines} -lapp=${appName}`).then(function(log){
                                     appLogs = [];
                                     appLogs = log;
                                 }).catch(function(err){console.log(err)});
                             } else {
                                 await kubectl.pod.logs(`--tail=-1 -lapp=${appName}`).then(function(log){
-                                    // appLogs = [];
-                                    // appLogs = log;
-                                    console.log("Full logs")
+                                    appLogs = [];
+                                    appLogs = log;
                                 }).catch(function(err){console.log(err)});
                             }
                         } catch (error) {
