@@ -56,16 +56,16 @@ app.listen({ port: port, host: hostname }, function () {
     console.log(`k8s-owl-BE app listen at : http://${hostname}:${port}`);
 });
 
-// function getEncryptedData(data: any) {
-//     let encryptMe;
-//     if (typeof data === 'object') encryptMe = JSON.stringify(data);
-//     return CryptoJS.AES.encrypt(encryptMe, k).toString();
-// }
+function getEncryptedData(data: any) {
+    let encryptMe;
+    if (typeof data === 'object') encryptMe = JSON.stringify(data);
+    return CryptoJS.AES.encrypt(encryptMe, k).toString();
+}
 
-// function getDecryptedData(ciphertext: any) {
-//     let bytes = CryptoJS.AES.decrypt(ciphertext, k);
-//     return bytes.toString(CryptoJS.enc.Utf8);
-// }
+function getDecryptedData(ciphertext: any) {
+    let bytes = CryptoJS.AES.decrypt(ciphertext, k);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
 
 app.get("/", (req, res) => {
     res.send(`k8s-api-BE is up and running...`);
@@ -74,7 +74,7 @@ app.get("/", (req, res) => {
 app.get("/clusters", async (req, res) => {
     try {
         let clusters = await k8sModel.find({});
-        res.send({ data: clusters });
+        res.send({ data: getEncryptedData(clusters) });
     } catch (e) {
         res.status(500);
     }
@@ -84,7 +84,7 @@ app.get("/clusters", async (req, res) => {
 app.post("/clusters/cluster-save", async (req: any, res) => {
     try {
         // let tempData = JSON.parse(req.body.data);
-        let tempData = req.body.data;
+        let tempData = JSON.parse(getDecryptedData(req.body.data));
         let saved = await k8sModel.create(tempData);
         res.send(saved);
         getAllClusterData();
@@ -109,8 +109,8 @@ app.get("/clusters/:postId", async (req: any, res) => {
 app.put("/clusters/update", async (req: any, res) => {
     try {
         // let tempData = JSON.parse(req.body.data);
-        let tempData = req.body.data
-        let id = req.body.id;
+        let tempData = JSON.parse(getDecryptedData(req.body.data));
+        let id = getDecryptedData(req.body.id);
         let post = await k8sModel.findByIdAndUpdate({ _id: id }, tempData, {
             new: true,
             runValidator: true,
