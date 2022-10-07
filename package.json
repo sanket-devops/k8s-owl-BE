@@ -24,6 +24,7 @@
     "nodestorage": "^0.9.17",
     "table": "^6.8.0",
     "tcp-port-used": "^1.0.2",
+    "time-stamp": "^2.2.0",
     "ts-node": "^10.9.1"
   },
   "devDependencies": {

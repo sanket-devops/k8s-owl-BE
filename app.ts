@@ -8,7 +8,7 @@ import * as http from "http";
 import * as https from "https";
 import K8s from "k8s";
 import fs from "fs";
-
+import timestamp from "time-stamp";
 
 let k8sBinary: any = 'kubectl';
 process.on("unhandledRejection", (error: Error, promise) => {
@@ -174,13 +174,39 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                     //     "AGE": Data.items[index].status.startTime,
                                     // });
                                     for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
-                                        // console.log(Data.items[index].status.containerStatuses[indexOne]);
+                                        // console.log(Data.items[index].status);
+                                        let podTimeStamp = Data.items[index].status.startTime
+                                        // console.log('PodTime: '+podTimeStamp + ' =>', 'CurrentTime: ' + timestamp.utc('YYYY-MM-DDTHH-mm-ssZ'))
+
+                                        let diffYear = (Math.abs(parseInt(podTimeStamp.slice(0,4)) - parseInt(timestamp.utc('YYYY')))) * 31536000;
+                                        let diffMonth = (Math.abs(parseInt(podTimeStamp.slice(5,7)) - parseInt(timestamp.utc('MM')))) * 2628000;
+                                        let diffDay = (Math.abs(parseInt(podTimeStamp.slice(8,10)) - parseInt(timestamp.utc('DD')))) * 86400;
+                                        let diffHour = (Math.abs(parseInt(podTimeStamp.slice(11,13)) - parseInt(timestamp.utc('HH')))) * 3600;
+                                        let diffMin = (Math.abs(parseInt(podTimeStamp.slice(14,16)) - parseInt(timestamp.utc('mm')))) * 60;
+                                        let diffSec = Math.abs(parseInt(podTimeStamp.slice(17,19)) - parseInt(timestamp.utc('ss')));
+
+                                        let seconds = diffYear+diffMonth+diffDay+diffHour+diffMin+diffSec;
+
+                                        let d = Math.floor(seconds / (3600*24));
+                                        let h = Math.floor(seconds % (3600*24) / 3600);
+                                        let m = Math.floor(seconds % 3600 / 60);
+                                        let s = Math.floor(seconds % 60);
+
+                                        let dDisplay = d > 0 ? d + (d == 1 ? "d" : "d") : "";
+                                        let hDisplay = h > 0 ? h + (h == 1 ? "h" : "h") : "";
+                                        let mDisplay = m > 0 ? m + (m == 1 ? "m" : "m") : "";
+                                        // let sDisplay = s > 0 ? s + (s == 1 ? " second" : " s") : "";
+                                        
+                                        // console.log(dDisplay + hDisplay + mDisplay );
+
                                         resData.push({
                                             "APP": Data.items[index].status.containerStatuses[indexOne].name,
                                             "PNAME": Data.items[index].metadata.name,
                                             "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
                                             "NODE": Data.items[index].spec.nodeName,
-                                            "AGE": Data.items[index].status.startTime,
+                                            // "AGE": Data.items[index].status.startTime,
+                                            // "AGE": `${diffYear}y${diffMonth}m${diffDay}d${diffHour}h${diffMin}m${diffSec}s`,
+                                            "AGE": `${dDisplay}${hDisplay}${mDisplay}`,
                                             "READY": Data.items[index].status.containerStatuses[indexOne].ready,
                                         });
                                         // console.log(resData);
