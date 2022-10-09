@@ -175,29 +175,43 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                     // });
                                     for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
                                         // console.log(Data.items[index].status);
-                                        let podTimeStamp = Data.items[index].status.startTime
-                                        // console.log('PodTime: '+podTimeStamp + ' =>', 'CurrentTime: ' + timestamp.utc('YYYY-MM-DDTHH-mm-ssZ'))
+                                        let podTimeStamp = Data.items[index].status.startTime;
+                                        // console.log('PodTime: '+podTimeStamp + ' =>', 'CurrentTime: ' + timestamp.utc('YYYY-MM-DDTHH-mm-ssZ'));
 
-                                        let diffYear = (Math.abs(parseInt(podTimeStamp.slice(0,4)) - parseInt(timestamp.utc('YYYY')))) * 31536000;
-                                        let diffMonth = (Math.abs(parseInt(podTimeStamp.slice(5,7)) - parseInt(timestamp.utc('MM')))) * 2628000;
-                                        let diffDay = (Math.abs(parseInt(podTimeStamp.slice(8,10)) - parseInt(timestamp.utc('DD')))) * 86400;
-                                        let diffHour = (Math.abs(parseInt(podTimeStamp.slice(11,13)) - parseInt(timestamp.utc('HH')))) * 3600;
-                                        let diffMin = (Math.abs(parseInt(podTimeStamp.slice(14,16)) - parseInt(timestamp.utc('mm')))) * 60;
-                                        let diffSec = Math.abs(parseInt(podTimeStamp.slice(17,19)) - parseInt(timestamp.utc('ss')));
 
-                                        let seconds = diffYear+diffMonth+diffDay+diffHour+diffMin+diffSec;
+                                        let diffYears = Math.abs(parseInt(podTimeStamp.slice(0,4)) - parseInt(timestamp.utc('YYYY')));
+                                        let diffMonths = Math.abs((parseInt(podTimeStamp.slice(5,7)) - parseInt(timestamp.utc('MM'))) * 30);
+                                        let diffDays = Math.abs(diffMonths - parseInt(podTimeStamp.slice(8,10)) + parseInt(timestamp.utc('DD')));
 
-                                        let d = Math.floor(seconds / (3600*24));
-                                        let h = Math.floor(seconds % (3600*24) / 3600);
-                                        let m = Math.floor(seconds % 3600 / 60);
-                                        let s = Math.floor(seconds % 60);
+                                        let diffHours = Math.abs((24 - parseInt(podTimeStamp.slice(11,13))) + parseInt(timestamp.utc('HH')));
+                                        let diffMins = Math.abs((60 - parseInt(podTimeStamp.slice(14,16))) + parseInt(timestamp.utc('mm')));
+                                        let diffSecs = Math.abs((60 - parseInt(podTimeStamp.slice(17,19))) + parseInt(timestamp.utc('ss')));
 
-                                        let dDisplay = d > 0 ? d + (d == 1 ? "d" : "d") : "";
+                                        let Y = diffYears;
+                                        // let M = diffMonths;
+                                        let D = diffDays;
+                                        let h = diffHours;
+                                        let m = diffMins;
+                                        let s = diffSecs;
+
+                                        // if (h > 24) {
+                                        //     if (h > 48) {
+                                        //         D = D+2;
+                                        //         // h = 0;
+                                        //     } else {
+                                        //         D = D+1;
+                                        //         // h = 0;
+                                        //     }
+                                        // } 
+
+                                        let YDisplay = Y > 0 ? Y + (Y == 1 ? "y" : "y") : "";
+                                        let DDisplay = D > 0 ? D + (D == 1 ? "d" : "d") : "";
                                         let hDisplay = h > 0 ? h + (h == 1 ? "h" : "h") : "";
                                         let mDisplay = m > 0 ? m + (m == 1 ? "m" : "m") : "";
-                                        // let sDisplay = s > 0 ? s + (s == 1 ? " second" : " s") : "";
-                                        
-                                        // console.log(dDisplay + hDisplay + mDisplay );
+                                        let sDisplay = s > 0 ? s + (s == 1 ? "s" : "s") : "";
+
+
+                                        // console.log(diffYears , diffMonths , diffDays , diffHours , diffMins , diffSecs );
 
                                         resData.push({
                                             "APP": Data.items[index].status.containerStatuses[indexOne].name,
@@ -206,7 +220,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                             "NODE": Data.items[index].spec.nodeName,
                                             // "AGE": Data.items[index].status.startTime,
                                             // "AGE": `${diffYear}y${diffMonth}m${diffDay}d${diffHour}h${diffMin}m${diffSec}s`,
-                                            "AGE": `${dDisplay}${hDisplay}${mDisplay}`,
+                                            "AGE": `${YDisplay}${DDisplay}${hDisplay}${mDisplay}${sDisplay}`,
                                             "READY": Data.items[index].status.containerStatuses[indexOne].ready,
                                         });
                                         // console.log(resData);
