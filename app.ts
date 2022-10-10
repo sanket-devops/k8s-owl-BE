@@ -182,10 +182,9 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                         let diffYears = Math.abs(parseInt(podTimeStamp.slice(0,4)) - parseInt(timestamp.utc('YYYY')));
                                         let diffMonths = Math.abs((parseInt(podTimeStamp.slice(5,7)) - parseInt(timestamp.utc('MM'))) * 30);
                                         let diffDays = Math.abs(diffMonths - parseInt(podTimeStamp.slice(8,10)) + parseInt(timestamp.utc('DD')));
-
-                                        let diffHours = Math.abs((24 - parseInt(podTimeStamp.slice(11,13))) + parseInt(timestamp.utc('HH')));
-                                        let diffMins = Math.abs((60 - parseInt(podTimeStamp.slice(14,16))) + parseInt(timestamp.utc('mm')));
-                                        let diffSecs = Math.abs((60 - parseInt(podTimeStamp.slice(17,19))) + parseInt(timestamp.utc('ss')));
+                                        let diffHours = Math.abs((24 - parseInt(podTimeStamp.slice(11,13))) - (24 - parseInt(timestamp.utc('HH'))));
+                                        let diffMins = Math.abs((60 - parseInt(podTimeStamp.slice(14,16))) - (60 - parseInt(timestamp.utc('mm'))));
+                                        let diffSecs = Math.abs((60 - parseInt(podTimeStamp.slice(17,19))) - (60 - parseInt(timestamp.utc('ss'))));
 
                                         let Y = diffYears;
                                         // let M = diffMonths;
@@ -360,6 +359,48 @@ const getLogsFromApp = async (groupId, clusterId, appName?, lines?) => {
     await Promise.all(appLogsPromiseArr);
     return appLogs;
 };
+
+let deletePodresData = <any>[];
+const deletePod = async (groupId, clusterId, podName) => {
+    let allData: Idashboard[] = <any>(
+        await k8sModel
+            .find({ groupId })
+            .select("_id groupName clusters")
+            .lean()
+            .exec()
+    );
+    allData = JSON.parse(JSON.stringify(allData));
+    let resLogsPromiseArr: Promise<any>[] = [];
+    resLogsPromiseArr.push(
+        new Promise<void>(async (resolve, reject) => {
+            //   https://github.com/Goyoo/node-k8s-client
+            for (let item = 0; item < allData.length; item++) {
+                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
+                    if (allData[item].clusters[clusterItem]._id === clusterId) {
+                        // console.log(allData[item].clusters[clusterItem]._id);
+                        let kubectl = await K8s.kubectl({
+                            binary: k8sBinary,
+                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
+                            version: "/api/v1",
+                        });
+                        try {
+                            await kubectl.pod.delete(`${podName}`).then(function(data: any){
+                                deletePodresData = [];
+                                deletePodresData = data;
+                            }).catch(function(err: any){console.log(err)});
+                        } catch (error) {
+                            console.log(error); 
+                        }
+                    }
+                }
+            }
+            resolve();
+        })
+    );
+    await Promise.all(resLogsPromiseArr);
+    return deletePodresData;
+};
+
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
         getAllClusterData();
@@ -429,6 +470,18 @@ app.get("/clusters/:groupId/:clusterId/:appName/AppLogs", async (req: any, res) 
     }
 });
 
+//deletePod
+app.delete("/clusters/:groupId/:clusterId/:podName/deletePod", async (req: any, res) => {
+    let groupId = req.params.groupId;
+    let clusterId = req.params.clusterId;
+    let podName = req.params.podName;
+    try {
+        res.send(await deletePod(groupId, clusterId, podName));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Pod deleted Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
 
 async function getAllClusterData() {
     let getCluster: Idashboard[] = <any>(
