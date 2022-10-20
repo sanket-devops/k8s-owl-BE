@@ -134,7 +134,7 @@ app.post("/clusters/cluster-delete", async (req: any, res) => {
     }
 });
 
-let resData = <any>[];
+let resData;
 const getDataFromCluster = async (groupId, clusterId) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
@@ -160,7 +160,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
                             version: "/api/v1",
                         });
                         await kubectl.pod.list(function (err, pods) {
-                            resData = [];
+                            let unSortData = <any>[];
                             try {
                                 let Data = JSON.parse(JSON.stringify(pods));
                                 // console.log(Data.items)
@@ -212,7 +212,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
 
                                         // console.log(diffYears , diffMonths , diffDays , diffHours , diffMins , diffSecs );
 
-                                        resData.push({
+                                        unSortData.push({
                                             "APP": Data.items[index].status.containerStatuses[indexOne].name,
                                             "PNAME": Data.items[index].metadata.name,
                                             "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
@@ -225,12 +225,14 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                         // console.log(resData);
                                     }
                                 }
+                                resData = unSortData.sort((a: any, b:any) => (a.AGE > b.AGE) ? 1 : -1);
                             } catch (err) {
+                                let resData = <any>[];
                                 console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 404");
                                 resData.push({
                                     "APP": "No Response",
                                     "PNAME": "No Response",
-                                    "STATUS": "No Response",
+                                    // "STATUS": "No Response",
                                     "RESTARTS": "No Response",
                                     "NODE": "No Response",
                                     "AGE": "No Response",
