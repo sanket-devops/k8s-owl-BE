@@ -166,13 +166,6 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                 // console.log(Data.items)
                                 for (let index = 0; index < Data.items.length; index++) {
                                     // console.log(Data.items[index]);
-                                    // resData.push({
-                                    //     "APP": Data.items[index].metadata.labels.app,
-                                    //     "PNAME": Data.items[index].metadata.name,
-                                    //     "STATUS": Data.items[index].status.phase,
-                                    //     "NODE": Data.items[index].spec.nodeName,
-                                    //     "AGE": Data.items[index].status.startTime,
-                                    // });
                                     for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
                                         // console.log(Data.items[index].status);
                                         let podTimeStamp = Data.items[index].status.startTime;
@@ -193,15 +186,6 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                         let m = diffMins;
                                         let s = diffSecs;
 
-                                        // if (h > 24) {
-                                        //     if (h > 48) {
-                                        //         D = D+2;
-                                        //         // h = 0;
-                                        //     } else {
-                                        //         D = D+1;
-                                        //         // h = 0;
-                                        //     }
-                                        // } 
 
                                         let YDisplay = Y > 0 ? Y + (Y == 1 ? "y" : "y") : "";
                                         let DDisplay = D > 0 ? D + (D == 1 ? "d" : "d") : "";
@@ -213,16 +197,15 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                         // console.log(diffYears , diffMonths , diffDays , diffHours , diffMins , diffSecs );
 
                                         unSortData.push({
+                                            "DEPLOYMENT": Data.items[index].metadata.labels.app,
                                             "APP": Data.items[index].status.containerStatuses[indexOne].name,
                                             "PNAME": Data.items[index].metadata.name,
                                             "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
                                             "NODE": Data.items[index].spec.nodeName,
-                                            // "AGE": Data.items[index].status.startTime,
-                                            // "AGE": `${diffYear}y${diffMonth}m${diffDay}d${diffHour}h${diffMin}m${diffSec}s`,
                                             "AGE": `${YDisplay}${DDisplay}${hDisplay}${mDisplay}${sDisplay}`,
                                             "READY": Data.items[index].status.containerStatuses[indexOne].ready,
                                         });
-                                        // console.log(resData);
+                                        // console.log(unSortData);
                                     }
                                 }
                                 resData = unSortData.sort((a: any, b:any) => (a.AGE > b.AGE) ? 1 : -1);
@@ -230,9 +213,9 @@ const getDataFromCluster = async (groupId, clusterId) => {
                                 let resData = <any>[];
                                 console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 404");
                                 resData.push({
+                                    "DEPLOYMENT": "No Response",
                                     "APP": "No Response",
                                     "PNAME": "No Response",
-                                    // "STATUS": "No Response",
                                     "RESTARTS": "No Response",
                                     "NODE": "No Response",
                                     "AGE": "No Response",
@@ -260,7 +243,7 @@ const getDataFromCluster = async (groupId, clusterId) => {
 };
 let resLogs = <any>[];
 
-const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
+const getLogsFromPod = async (groupId, clusterId, podName, appName, h?) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
             .find({ groupId })
@@ -284,15 +267,21 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
                         });
                         try {
                             if (h) {
-                                await kubectl.pod.logs(`${podName} --since=${h}`).then(function(log){
+                                await kubectl.command(`logs ${podName} --container=${appName} --since=${h}`).then(function(log){
                                     resLogs = [];
                                     resLogs = log;
-                                }).catch(function(err){console.log(err)});
+                                }).catch(function(err){
+                                    resLogs = err;
+                                    console.log(err)
+                                });
                             } else {
-                                await kubectl.pod.logs(`${podName}`).then(function(log){
+                                await kubectl.command(`logs ${podName} --container=${appName}`).then(function(log){
                                     resLogs = [];
                                     resLogs = log;
-                                }).catch(function(err){console.log(err)});
+                                }).catch(function(err){
+                                    resLogs = err;
+                                    console.log(err)
+                                });
                             }
                         } catch (error) {
                             console.log(error); 
@@ -315,7 +304,7 @@ const getLogsFromPod = async (groupId, clusterId, podName, h?) => {
 };
 let appLogs = <any>[];
 
-const getLogsFromApp = async (groupId, clusterId, appName?, lines?) => {
+const getLogsFromApp = async (groupId, clusterId, deploymentName, appName, lines?) => {
     let allData: Idashboard[] = <any>(
         await k8sModel
             .find({ groupId })
@@ -339,15 +328,21 @@ const getLogsFromApp = async (groupId, clusterId, appName?, lines?) => {
                         });
                         try {
                             if (lines) {
-                                await kubectl.pod.logs(`--tail=${lines} -lapp=${appName}`).then(function(log){
+                                await kubectl.command(`logs --tail=${lines} -lapp=${deploymentName} --container=${appName}`).then(function(log){
                                     appLogs = [];
                                     appLogs = log;
-                                }).catch(function(err){console.log(err)});
+                                }).catch(function(err){
+                                    appLogs = err;
+                                    console.log(err)
+                                });
                             } else {
-                                await kubectl.pod.logs(`--tail=-1 -lapp=${appName}`).then(function(log){
+                                await kubectl.command(`logs --tail=-1 -lapp=${deploymentName} --container=${appName}`).then(function(log){
                                     appLogs = [];
                                     appLogs = log;
-                                }).catch(function(err){console.log(err)});
+                                }).catch(function(err){
+                                    appLogs = err;
+                                    console.log(err)
+                                });
                             }
                         } catch (error) {
                             console.log(error); 
@@ -389,7 +384,10 @@ const deletePod = async (groupId, clusterId, podName) => {
                             await kubectl.pod.delete(`${podName}`).then(function(data: any){
                                 deletePodresData = [];
                                 deletePodresData = data;
-                            }).catch(function(err: any){console.log(err)});
+                            }).catch(function(err: any){
+                                deletePodresData = err;
+                                console.log(err)
+                            });
                         } catch (error) {
                             console.log(error); 
                         }
@@ -406,6 +404,7 @@ const deletePod = async (groupId, clusterId, podName) => {
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
         getAllClusterData();
+        resData = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
         res.send(await getDataFromCluster(groupId, clusterId));
@@ -416,57 +415,65 @@ app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
 });
 
 
-app.get("/clusters/:groupId/:clusterId/:podName/:h", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:podName/:appName/:h", async (req: any, res) => {
     try {
-        getAllClusterData();      
+        getAllClusterData();
+        resLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
         let podName = req.params.podName;
+        let appName = req.params.appName;
         let h = req.params.h;
-        res.send(await getLogsFromPod(groupId, clusterId, podName, h));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + ` => Get ${h} Pod Logs Res: 200`);
+        res.send(await getLogsFromPod(groupId, clusterId, podName, appName, h));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get ${h} Pod Logs Res: 200`);
     } catch (e) {
         res.status(500);
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:podName", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:podName/:appName", async (req: any, res) => {
     try {
-        getAllClusterData();      
+        getAllClusterData();
+        resLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
         let podName = req.params.podName;
+        let appName = req.params.appName;
         let h = req.params.h;
-        res.send(await getLogsFromPod(groupId, clusterId, podName));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Get Full Pod Logs Res: 200");
+        res.send(await getLogsFromPod(groupId, clusterId, podName, appName));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + " => Get Full Pod Logs Res: 200");
     } catch (e) {
         res.status(500);
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:appName/:lines/AppLogs", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:deploymentName/:appName/:lines/AppLogs", async (req: any, res) => {
     try {
-        getAllClusterData();      
+        getAllClusterData();
+        appLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
+        let deploymentName = req.params.deploymentName;
         let appName = req.params.appName;
         let lines = req.params.lines;
-        res.send(await getLogsFromApp(groupId, clusterId, appName, lines));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'AppName: ' + appName + ` => Get ${lines} App Logs Res: 200`);
+        res.send(await getLogsFromApp(groupId, clusterId, deploymentName, appName, lines));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'deploymentName: ' + deploymentName, 'AppName: ' + appName + ` => Get ${lines} App Logs Res: 200`);
     } catch (e) {
         res.status(500);
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:appName/AppLogs", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:deploymentName/:appName/AppLogs", async (req: any, res) => {
     try {
-        getAllClusterData();      
+        getAllClusterData();
+        appLogs = "Data Not Found";   
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
+        let deploymentName = req.params.deploymentName;
         let appName = req.params.appName;
         let lines = req.params.lines;
-        res.send(await getLogsFromApp(groupId, clusterId, appName));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'AppName: ' + appName + ` => Get Full App Logs Res: 200`);
+        res.send(await getLogsFromApp(groupId, clusterId, deploymentName, appName));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId,'deploymentName: ' + deploymentName, 'AppName: ' + appName + ` => Get Full App Logs Res: 200`);
     } catch (e) {
         res.status(500);
     }
