@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@fastify/cors": "^8.1.0",
+    "@kubernetes/client-node": "^0.18.1",
+    "axios": "^1.4.0",
     "body-parser": "^1.20.0",
     "boom": "^7.3.0",
     "crypto-js": "^4.1.1",
@@ -25,7 +27,8 @@
     "table": "^6.8.0",
     "tcp-port-used": "^1.0.2",
     "time-stamp": "^2.2.0",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "yaml": "^2.3.1"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.0.1",
