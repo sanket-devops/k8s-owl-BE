@@ -329,7 +329,7 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h",
             return new Promise((resolve, reject) => {
                 let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}&sinceSeconds=${sinceSeconds}`;
                 let logs = k8sApi(groupId, clusterId, hourBasedLog)
-                HourlyLogs.push(`>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<`);
+                HourlyLogs.push(`\n>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<\n`);
                 resolve(logs);
             });
         }
@@ -343,7 +343,7 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h",
                         try {
                             await getHourlyLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
                                 HourlyLogs.push(logs);
-                                HourlyLogs.push(`>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
+                                HourlyLogs.push(`\n>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
                             })
                         } catch (error) {
                             console.log(error);
@@ -379,7 +379,7 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", as
             return new Promise((resolve, reject) => {
                 let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}`;
                 let logs = k8sApi(groupId, clusterId, hourBasedLog)
-                HourlyLogs.push(`>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<`);
+                HourlyLogs.push(`\n>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<\n`);
                 resolve(logs);
             });
         }
@@ -393,7 +393,7 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", as
                         try {
                             await getFullLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
                                 HourlyLogs.push(logs);
-                                HourlyLogs.push(`>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
+                                HourlyLogs.push(`\n>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
                             })
                         } catch (error) {
                             console.log(error);
@@ -402,7 +402,7 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", as
                 }
                 
             }
-            console.log(HourlyLogs);
+            // console.log(HourlyLogs);
             return HourlyLogs;
         }
 
