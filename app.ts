@@ -136,174 +136,7 @@ app.post("/clusters/cluster-delete", async (req: any, res) => {
     }
 });
 
-let resData;
-const getDataFromCluster = async (groupId, clusterId) => {
-    let allData: Idashboard[] = <any>(
-        await k8sModel
-            .find({ groupId })
-            .select("_id groupName clusters")
-            .lean()
-            .exec()
-    );
-    allData = JSON.parse(JSON.stringify(allData));
-    let resDataPromiseArr: Promise<any>[] = [];
-    resDataPromiseArr.push(
-        new Promise<void>(async (resolve, reject) => {
-            //   https://github.com/Goyoo/node-k8s-client
 
-
-            for (let item = 0; item < allData.length; item++) {
-                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                    if (allData[item].clusters[clusterItem]._id === clusterId) {
-                        // console.log(allData[item].clusters[clusterItem]._id);
-                        let kubectl = await K8s.kubectl({
-                            binary: k8sBinary,
-                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                            version: "/api/v1",
-                        });
-                        await kubectl.pod.list(function (err, pods) {
-                            let unSortData = <any>[];
-                            try {
-                                let Data = JSON.parse(JSON.stringify(pods));
-                                // console.log(Data.items)
-                                for (let index = 0; index < Data.items.length; index++) {
-                                    // console.log(Data.items[index]);
-                                    for (let indexOne = 0; indexOne < Data.items[index].status.containerStatuses.length; indexOne++) {
-                                        // console.log(Data.items[index].status);
-                                        let podTimeStamp = Data.items[index].status.startTime;
-                                        // console.log('PodTime: '+podTimeStamp + ' =>', 'CurrentTime: ' + timestamp.utc('YYYY-MM-DDTHH-mm-ssZ'));
-
-
-                                        let diffYears = Math.abs(parseInt(podTimeStamp.slice(0, 4)) - parseInt(timestamp.utc('YYYY')));
-                                        let diffMonths = Math.abs((parseInt(podTimeStamp.slice(5, 7)) - parseInt(timestamp.utc('MM'))) * 30);
-                                        let diffDays = Math.abs(diffMonths - parseInt(podTimeStamp.slice(8, 10)) + parseInt(timestamp.utc('DD')));
-                                        let diffHours = Math.abs((24 - parseInt(podTimeStamp.slice(11, 13))) - (24 - parseInt(timestamp.utc('HH'))));
-                                        let diffMins = Math.abs((60 - parseInt(podTimeStamp.slice(14, 16))) - (60 - parseInt(timestamp.utc('mm'))));
-                                        let diffSecs = Math.abs((60 - parseInt(podTimeStamp.slice(17, 19))) - (60 - parseInt(timestamp.utc('ss'))));
-
-                                        let Y = diffYears;
-                                        // let M = diffMonths;
-                                        let D = diffDays;
-                                        let h = diffHours;
-                                        let m = diffMins;
-                                        let s = diffSecs;
-
-
-                                        let YDisplay = Y > 0 ? Y + (Y == 1 ? "y" : "y") : "";
-                                        let DDisplay = D > 0 ? D + (D == 1 ? "d" : "d") : "";
-                                        let hDisplay = h > 0 ? h + (h == 1 ? "h" : "h") : "";
-                                        let mDisplay = m > 0 ? m + (m == 1 ? "m" : "m") : "";
-                                        let sDisplay = s > 0 ? s + (s == 1 ? "s" : "s") : "";
-
-
-                                        // console.log(diffYears , diffMonths , diffDays , diffHours , diffMins , diffSecs );
-
-                                        unSortData.push({
-                                            "DEPLOYMENT": Data.items[index].metadata.labels.app,
-                                            "APP": Data.items[index].status.containerStatuses[indexOne].name,
-                                            "PNAME": Data.items[index].metadata.name,
-                                            "RESTARTS": Data.items[index].status.containerStatuses[indexOne].restartCount,
-                                            "NODE": Data.items[index].spec.nodeName,
-                                            "AGE": `${YDisplay}${DDisplay}${hDisplay}${mDisplay}${sDisplay}`,
-                                            "READY": Data.items[index].status.containerStatuses[indexOne].ready,
-                                        });
-                                        // console.log(unSortData);
-                                    }
-                                }
-                                resData = unSortData.sort((a: any, b: any) => (a.AGE > b.AGE) ? 1 : -1);
-                            } catch (err) {
-                                let resData = <any>[];
-                                console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 404");
-                                resData.push({
-                                    "DEPLOYMENT": "No Response",
-                                    "APP": "No Response",
-                                    "PNAME": "No Response",
-                                    "RESTARTS": "No Response",
-                                    "NODE": "No Response",
-                                    "AGE": "No Response",
-                                    "READY": "No Response",
-                                });
-                                console.error(err.error);
-                                resolve();
-                            }
-                        });
-
-                        // kubectl.node.list(function(err, nodes){
-                        //     resData = JSON.parse(JSON.stringify(nodes));
-                        //     console.log(resData)
-                        // })
-                    }
-
-                }
-
-            }
-            resolve();
-        })
-    );
-    await Promise.all(resDataPromiseArr);
-    return resData;
-};
-let resLogs = <any>[];
-
-const getLogsFromPod = async (groupId, clusterId, podName, appName, h?) => {
-    let allData: Idashboard[] = <any>(
-        await k8sModel
-            .find({ groupId })
-            .select("_id groupName clusters")
-            .lean()
-            .exec()
-    );
-    allData = JSON.parse(JSON.stringify(allData));
-    let resLogsPromiseArr: Promise<any>[] = [];
-    resLogsPromiseArr.push(
-        new Promise<void>(async (resolve, reject) => {
-            //   https://github.com/Goyoo/node-k8s-client
-            for (let item = 0; item < allData.length; item++) {
-                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                    if (allData[item].clusters[clusterItem]._id === clusterId) {
-                        // console.log(allData[item].clusters[clusterItem]._id);
-                        let kubectl = await K8s.kubectl({
-                            binary: k8sBinary,
-                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                            version: "/api/v1",
-                        });
-                        try {
-                            if (h) {
-                                await kubectl.command(`logs ${podName} --container=${appName} --since=${h}`).then(function (log) {
-                                    resLogs = [];
-                                    resLogs = log;
-                                }).catch(function (err) {
-                                    resLogs = err;
-                                    console.log(err)
-                                });
-                            } else {
-                                await kubectl.command(`logs ${podName} --container=${appName}`).then(function (log) {
-                                    resLogs = [];
-                                    resLogs = log;
-                                }).catch(function (err) {
-                                    resLogs = err;
-                                    console.log(err)
-                                });
-                            }
-                        } catch (error) {
-                            console.log(error);
-                        }
-
-                        // kubectl.node.list(function(err, nodes){
-                        //     resData = JSON.parse(JSON.stringify(nodes));
-                        //     console.log(resData)
-                        // })
-                    }
-
-                }
-
-            }
-            resolve();
-        })
-    );
-    await Promise.all(resLogsPromiseArr);
-    return resLogs;
-};
 let appLogs = <any>[];
 
 const getLogsFromApp = async (groupId, clusterId, deploymentName, appName, lines?) => {
@@ -403,6 +236,7 @@ const deletePod = async (groupId, clusterId, podName) => {
     return deletePodresData;
 };
 
+// Get pods list from the cluster using all namespace.
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
@@ -419,6 +253,8 @@ app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
         res.status(500);
     }
 });
+
+// Get pods list from the cluster using perticuler namespace.
 app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
@@ -427,7 +263,7 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
 
         // k8s-api endpoint
         let pods: string = `/api/v1/namespaces/${namespace}/pods`;
-        let resApi = await k8sApi(groupId, clusterId, pods)
+        let resApi = await k8sApi(groupId, clusterId, pods);
 
         res.send(resApi);
         // console.log(resApi);
@@ -437,34 +273,141 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
     }
 });
 
-
-app.get("/clusters/:groupId/:clusterId/:podName/:appName/:h", async (req: any, res) => {
+// Get Hourly based Container logs inside the pod. 
+app.get("/clusters/:groupId/:clusterId/:namespace/:podName/:appName/:h", async (req: any, res) => {
     try {
-        getAllClusterData();
-        resLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
         let podName = req.params.podName;
         let appName = req.params.appName;
-        let h = req.params.h;
-        res.send(await getLogsFromPod(groupId, clusterId, podName, appName, h));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get ${h} Pod Logs Res: 200`);
+        let sinceSeconds = req.params.h * 3600;
+
+        // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
+        let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&sinceSeconds=${sinceSeconds}`;
+
+        res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get ${sinceSeconds}Sec Pod Logs Res: 200`);
     } catch (e) {
         res.status(500);
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:podName/:appName", async (req: any, res) => {
+// Get Full Container logs inside the pod. 
+app.get("/clusters/:groupId/:clusterId/:namespace/:podName/:appName", async (req: any, res) => {
     try {
-        getAllClusterData();
-        resLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
         let podName = req.params.podName;
         let appName = req.params.appName;
-        let h = req.params.h;
-        res.send(await getLogsFromPod(groupId, clusterId, podName, appName));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + " => Get Full Pod Logs Res: 200");
+
+        // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}
+        let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}`;
+
+        res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get Full Pod Logs Res: 200`);
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+// Get Hourly based Deployment logs.
+app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h", async (req: any, res) => {
+    try {
+        let HourlyLogs: any = [];
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
+        let deploymentName = req.params.deploymentName;
+        let sinceSeconds = req.params.h * 3600;
+
+        let pods: string = `/api/v1/namespaces/${namespace}/pods`;
+        let getPodsData: any = await k8sApi(groupId, clusterId, pods);
+
+        function getHourlyLogs(podName: any, containerName: any) {
+            return new Promise((resolve, reject) => {
+                let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}&sinceSeconds=${sinceSeconds}`;
+                let logs = k8sApi(groupId, clusterId, hourBasedLog)
+                HourlyLogs.push(`>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<`);
+                resolve(logs);
+            });
+        }
+
+        async function promiseLoopHourlyLogs() {
+            for (let pod = 0; pod < getPodsData.items.length; pod++) {
+                if (deploymentName === getPodsData.items[pod].metadata.labels.app) {
+                    // console.log(getPodsData.items[pod].metadata.labels.app);
+                    for (let container = 0; container < getPodsData.items[pod].spec.containers.length; container++) {
+                        // console.log(getPodsData.items[pod].spec.containers[container].name);
+                        try {
+                            await getHourlyLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
+                                HourlyLogs.push(logs);
+                                HourlyLogs.push(`>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
+                            })
+                        } catch (error) {
+                            console.log(error);
+                        }
+                    }
+                }
+                
+            }
+            console.log(HourlyLogs);
+            return HourlyLogs;
+        }
+
+        res.send({"data": await promiseLoopHourlyLogs()});
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'Deployment Name: ' + deploymentName + ` => Get ${sinceSeconds}Sec Pod Logs Res: 200`);
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+// Get Full Deployment logs.
+app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", async (req: any, res) => {
+    try {
+        let HourlyLogs: any = [];
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
+        let deploymentName = req.params.deploymentName;
+
+        let pods: string = `/api/v1/namespaces/${namespace}/pods`;
+        let getPodsData: any = await k8sApi(groupId, clusterId, pods);
+
+        function getFullLogs(podName: any, containerName: any) {
+            return new Promise((resolve, reject) => {
+                let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}`;
+                let logs = k8sApi(groupId, clusterId, hourBasedLog)
+                HourlyLogs.push(`>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<`);
+                resolve(logs);
+            });
+        }
+
+        async function promiseLoopFullLogs() {
+            for (let pod = 0; pod < getPodsData.items.length; pod++) {
+                if (deploymentName === getPodsData.items[pod].metadata.labels.app) {
+                    // console.log(getPodsData.items[pod].metadata.labels.app);
+                    for (let container = 0; container < getPodsData.items[pod].spec.containers.length; container++) {
+                        // console.log(getPodsData.items[pod].spec.containers[container].name);
+                        try {
+                            await getFullLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
+                                HourlyLogs.push(logs);
+                                HourlyLogs.push(`>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
+                            })
+                        } catch (error) {
+                            console.log(error);
+                        }
+                    }
+                }
+                
+            }
+            console.log(HourlyLogs);
+            return HourlyLogs;
+        }
+
+        res.send({"data": await promiseLoopFullLogs()});
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'Deployment Name: ' + deploymentName + ` => Get Full Deployment Logs Res: 200`);
     } catch (e) {
         res.status(500);
     }
@@ -626,7 +569,7 @@ async function getAllClusterData() {
     }
 }
 
-async function k8sApi(groupId: string, clusterId: string, pods?: string, nodes?: string, logs?: string, params?:any) {
+async function k8sApi(groupId: string, clusterId: string, path:string) {
     // https://kubernetes.io/docs/reference/kubernetes-api/
     return new Promise(async (resolve, reject) => {
         let server: string = '';
@@ -661,20 +604,22 @@ async function k8sApi(groupId: string, clusterId: string, pods?: string, nodes?:
         });
 
         setTimeout(async () => {
-            switch (groupId && clusterId && (pods || nodes )) {
-                case pods:
-                    url = server+pods;
-                    break;
-                case nodes:
-                    url = server+nodes;
-                    break;
-                case logs:
-                    url = server+logs;
-                    break;
-                default:
-                    resolve({Error: "No Endpoint Found..."})
-                    break;
-            }
+            url = server+path;
+            // switch (groupId && clusterId && (pods || nodes )) {
+            //     case pods:
+            //         url = server+pods;
+            //         break;
+            //     case nodes:
+            //         url = server+nodes;
+            //         break;
+            //     case logs:
+            //         url = server+logs;
+            //         break;
+            //     default:
+            //         resolve({Error: "No Endpoint Found..."})
+            //         break;
+            // }
+            console.log(url);
             const httpsAgent = new https.Agent({
                 rejectUnauthorized: false,
                 ca: auth,
@@ -683,7 +628,7 @@ async function k8sApi(groupId: string, clusterId: string, pods?: string, nodes?:
             });
             
             try {
-                let response = await axios.get(url, { httpsAgent, params });
+                let response = await axios.get(url, { httpsAgent });
                 // console.log(response.data.items);
                 resolve(response.data);
             } catch (error) {
