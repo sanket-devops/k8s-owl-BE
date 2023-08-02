@@ -37,9 +37,9 @@ const bodyParser = require("body-parser");
 const hostname = "0.0.0.0";
 const port = 8008;
 let k8sModel = require("./k8s.model");
-// let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-owl?authSource=admin';
+let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-owl?authSource=admin';
 // let db = "mongodb://admin:admin@192.168.10.166:32717/k8s-api-BE?authSource=admin";
-let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.10.108:27017/k8s-api-BE?authSource=admin';
+// let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.10.108:27017/k8s-api-BE?authSource=admin';
 let allData = [];
 let nodemailer = require("nodemailer");
 
@@ -89,7 +89,7 @@ app.post("/clusters/cluster-save", async (req: any, res) => {
         let tempData = JSON.parse(getDecryptedData(req.body.data));
         let saved = await k8sModel.create(tempData);
         res.send(saved);
-        getAllClusterData();
+        // getAllClusterData();
     } catch (e) {
         console.log(e);
         res.status(500);
@@ -117,7 +117,7 @@ app.put("/clusters/update", async (req: any, res) => {
             new: true,
             runValidator: true,
         });
-        getAllClusterData();
+        // getAllClusterData();
         res.send(post);
     } catch (e) {
         res.status(500);
@@ -136,107 +136,77 @@ app.post("/clusters/cluster-delete", async (req: any, res) => {
     }
 });
 
+// Kubernetes API function
+async function k8sApi(groupId: string, clusterId: string, path:string, reqType?: any) {
+    // https://kubernetes.io/docs/reference/kubernetes-api/
+    return new Promise(async (resolve, reject) => {
+        let server: string = '';
+        let auth: string = '';
+        let client: string = '';
+        let key: string = '';
+        let config: any = '';
+        let url: string = ''
 
-let appLogs = <any>[];
+        let groupData = JSON.parse(JSON.stringify(await k8sModel.findOne({ _id: groupId })));
 
-const getLogsFromApp = async (groupId, clusterId, deploymentName, appName, lines?) => {
-    let allData: Idashboard[] = <any>(
-        await k8sModel
-            .find({ groupId })
-            .select("_id groupName clusters")
-            .lean()
-            .exec()
-    );
-    allData = JSON.parse(JSON.stringify(allData));
-    let appLogsPromiseArr: Promise<any>[] = [];
-    appLogsPromiseArr.push(
-        new Promise<void>(async (resolve, reject) => {
-            //   https://github.com/Goyoo/node-k8s-client
-            for (let item = 0; item < allData.length; item++) {
-                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                    if (allData[item].clusters[clusterItem]._id === clusterId) {
-                        // console.log(allData[item].clusters[clusterItem]._id);
-                        let kubectl = await K8s.kubectl({
-                            binary: k8sBinary,
-                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                            version: "/api/v1",
-                        });
-                        try {
-                            if (lines) {
-                                await kubectl.command(`logs --tail=${lines} -lapp=${deploymentName} --container=${appName}`).then(function (log) {
-                                    appLogs = [];
-                                    appLogs = log;
-                                }).catch(function (err) {
-                                    appLogs = err;
-                                    console.log(err)
-                                });
-                            } else {
-                                await kubectl.command(`logs --tail=-1 -lapp=${deploymentName} --container=${appName}`).then(function (log) {
-                                    appLogs = [];
-                                    appLogs = log;
-                                }).catch(function (err) {
-                                    appLogs = err;
-                                    console.log(err)
-                                });
-                            }
-                        } catch (error) {
-                            console.log(error);
-                        }
-                    }
-                }
+        async function decBase64(data: string) {
+            let buffer = Buffer.from(data, 'base64');
+            const decodedString = buffer.toString('utf-8');
+            return decodedString;
+        }
+
+        groupData.clusters.forEach(async (cluster: any) => {
+            if (cluster._id === clusterId) {
+                config = YAML.parse(cluster.kubeConfig)
+                config.clusters.forEach(async (cluster: any) => {
+                    auth = await decBase64(cluster.cluster['certificate-authority-data']);
+                    server = cluster.cluster.server;
+                });
+                config.users.forEach(async (user: any) => {
+                    client = await decBase64(user.user['client-certificate-data']);
+                    key = await decBase64(user.user['client-key-data']);
+                });
             }
-            resolve();
-        })
-    );
-    await Promise.all(appLogsPromiseArr);
-    return appLogs;
-};
+        });
 
-let deletePodresData = <any>[];
-const deletePod = async (groupId, clusterId, podName) => {
-    let allData: Idashboard[] = <any>(
-        await k8sModel
-            .find({ groupId })
-            .select("_id groupName clusters")
-            .lean()
-            .exec()
-    );
-    allData = JSON.parse(JSON.stringify(allData));
-    let resLogsPromiseArr: Promise<any>[] = [];
-    resLogsPromiseArr.push(
-        new Promise<void>(async (resolve, reject) => {
-            //   https://github.com/Goyoo/node-k8s-client
-            for (let item = 0; item < allData.length; item++) {
-                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                    if (allData[item].clusters[clusterItem]._id === clusterId) {
-                        // console.log(allData[item].clusters[clusterItem]._id);
-                        let kubectl = await K8s.kubectl({
-                            binary: k8sBinary,
-                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                            version: "/api/v1",
-                        });
-                        try {
-                            await kubectl.pod.delete(`${podName}`).then(function (data: any) {
-                                deletePodresData = [];
-                                deletePodresData = data;
-                            }).catch(function (err: any) {
-                                deletePodresData = err;
-                                console.log(err)
-                            });
-                        } catch (error) {
-                            console.log(error);
-                        }
-                    }
+        setTimeout(async () => {
+            url = server+path;
+            console.log(url);
+            const httpsAgent = new https.Agent({
+                rejectUnauthorized: false,
+                ca: auth,
+                cert: client,
+                key: key,
+            });
+            
+            try {
+                switch (reqType) {
+                    case "GET":
+                        let getData = await axios.get(url, { httpsAgent });
+                        // console.log(getData.data.items);
+                        resolve(getData.data);
+                        break;
+                    case "DELETE":
+                        let deleteData = await axios.delete(url, { httpsAgent });
+                        // console.log(deleteData);
+                        resolve(deleteData.data);
+                        break;
+                
+                    default:
+                        let response = await axios.get(url, { httpsAgent });
+                        // console.log(response.data.items);
+                        resolve(response.data);
+                        break;
                 }
+            } catch (error) {
+                console.log(error);
+                resolve(error);
             }
-            resolve();
-        })
-    );
-    await Promise.all(resLogsPromiseArr);
-    return deletePodresData;
-};
+        }, 100);
+    });
+}
 
-// Get pods list from the cluster using all namespace.
+// Get all the pods from all namespaces
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
@@ -263,7 +233,7 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
 
         // k8s-api endpoint
         let pods: string = `/api/v1/namespaces/${namespace}/pods`;
-        let resApi = await k8sApi(groupId, clusterId, pods);
+        let resApi = await k8sApi(groupId, clusterId, pods, "GET");
 
         res.send(resApi);
         // console.log(resApi);
@@ -350,9 +320,8 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h",
                         }
                     }
                 }
-                
             }
-            console.log(HourlyLogs);
+            // console.log(HourlyLogs);
             return HourlyLogs;
         }
 
@@ -413,257 +382,22 @@ app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", as
     }
 });
 
-app.get("/clusters/:groupId/:clusterId/:deploymentName/:appName/:lines/AppLogs", async (req: any, res) => {
+// Delete pod.
+app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async (req: any, res) => {
     try {
-        getAllClusterData();
-        appLogs = "Data Not Found";
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
-        let deploymentName = req.params.deploymentName;
-        let appName = req.params.appName;
-        let lines = req.params.lines;
-        res.send(await getLogsFromApp(groupId, clusterId, deploymentName, appName, lines));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'deploymentName: ' + deploymentName, 'AppName: ' + appName + ` => Get ${lines} App Logs Res: 200`);
+        let namespace = req.params.namespace;
+        let podName = req.params.podName;
+
+        // k8s-api endpoint /api/v1/namespaces/{namespace}/pods/{name}
+        let deletePod: string = `/api/v1/namespaces/${namespace}/pods/${podName}`;
+
+        res.send(await k8sApi(groupId, clusterId, deletePod, "DELETE"));
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
     } catch (e) {
         res.status(500);
     }
 });
-
-const getLogsFromAppNew = async (groupId, clusterId, deploymentName, appName, lines?) => {
-    let allData: Idashboard[] = <any>(
-        await k8sModel
-            .find({ groupId })
-            .select("_id groupName clusters")
-            .lean()
-            .exec()
-    );
-    allData = JSON.parse(JSON.stringify(allData));
-    let appLogsPromiseArr: Promise<any>[] = [];
-    appLogsPromiseArr.push(
-        new Promise<void>(async (resolve, reject) => {
-            //   https://github.com/Goyoo/node-k8s-client
-            for (let item = 0; item < allData.length; item++) {
-                for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                    if (allData[item].clusters[clusterItem]._id === clusterId) {
-                        // console.log(allData[item].clusters[clusterItem]._id);
-                        let kubectl = await K8s.kubectl({
-                            binary: k8sBinary,
-                            kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                            version: "/api/v1",
-                        });
-                        try {
-                            await kubectl.command(`logs --tail=-1 -lapp=${deploymentName} --container=${appName}`).then(function (log: any) {
-                                appLogs = [];
-                                appLogs = log;
-                                console.log("Log generated...");
-                                return log;
-                                // console.log(log);
-                            }).catch(function (err) {
-                                appLogs = err;
-                                console.log(err)
-                            });
-                        } catch (error) {
-                            console.log(error);
-                        }
-                    }
-                }
-            }
-            resolve();
-        })
-    );
-    await Promise.all(appLogsPromiseArr);
-    // console.log(appLogs);
-    // return appLogs;
-};
-
-app.get("/clusters/:groupId/:clusterId/:deploymentName/:appName/AppLogs", async (req: any, res) => {
-    try {
-        // getAllClusterData();
-        appLogs = "Data Not Found";
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
-        let deploymentName = req.params.deploymentName;
-        let appName = req.params.appName;
-        let lines = req.params.lines;
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'deploymentName: ' + deploymentName, 'AppName: ' + appName + ` => Get Full App Logs Res: 200`);
-
-        let allData: Idashboard[] = <any>(
-            await k8sModel
-                .find({ groupId })
-                .select("_id groupName clusters")
-                .lean()
-                .exec()
-        );
-        allData = JSON.parse(JSON.stringify(allData));
-
-        for (let item = 0; item < allData.length; item++) {
-            for (let clusterItem = 0; clusterItem < allData[item].clusters.length; clusterItem++) {
-                if (allData[item].clusters[clusterItem]._id === clusterId) {
-                    // console.log(allData[item].clusters[clusterItem]._id);
-                    let kubectl = await K8s.kubectl({
-                        binary: k8sBinary,
-                        kubeconfig: `./kubeconfigfiles/${allData[item].clusters[clusterItem].clusterName}.yaml`,
-                        version: "/api/v1",
-                    });
-                    // await kubectl.command(`logs --tail=-1 -lapp=${deploymentName} --container=${appName}`).then(function(log: any){
-                    await kubectl.command(`logs --tail=-1 -lapp=${deploymentName} --container=${appName}`, function (log: any) {
-                        appLogs = [];
-                        appLogs = log;
-                        console.log("Log generated...");
-                        console.log(log);
-                        // res.send(log);
-                    })
-                    // .catch(function(err){
-                    //     appLogs = err;
-                    //     console.log(err)
-                    // });
-                }
-            }
-        }
-        // res.send(await getLogsFromApp(groupId, clusterId, deploymentName, appName));
-        // res.send(await getLogsFromAppNew(groupId, clusterId, deploymentName, appName));
-        // console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId,'deploymentName: ' + deploymentName, 'AppName: ' + appName + ` => Get Full App Logs Res: 200`);
-    } catch (e) {
-        res.status(500);
-    }
-});
-
-//deletePod
-app.delete("/clusters/:groupId/:clusterId/:podName/deletePod", async (req: any, res) => {
-    let groupId = req.params.groupId;
-    let clusterId = req.params.clusterId;
-    let podName = req.params.podName;
-    try {
-        res.send(await deletePod(groupId, clusterId, podName));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName + " => Pod deleted Res: 200");
-    } catch (e) {
-        res.status(500);
-    }
-});
-
-async function getAllClusterData() {
-    let getCluster: Idashboard[] = <any>(
-        await k8sModel.find({}).select("groupName clusters").lean().exec()
-    );
-    getCluster = JSON.parse(JSON.stringify(getCluster));
-    // console.log(getCluster);
-    let clustersPromiseArr: Promise<any>[] = [];
-    for (let item of getCluster) {
-        clustersPromiseArr.push(
-            new Promise<void>(async (resolve, reject) => {
-                for (let i = 0; i < item.clusters.length; i++) {
-                    //   console.log(item.clusters[i]);
-                    let fileName = `./kubeconfigfiles/${item.clusters[i].clusterName}.yaml`;
-                    const content = item.clusters[i].kubeConfig;
-                    fs.writeFile(fileName, content, (err2) => {
-                        if (err2) {
-                            console.log(err2);
-                            return;
-                        }
-                    });
-                }
-                resolve();
-            })
-        );
-        await Promise.all(clustersPromiseArr);
-    }
-}
-
-async function k8sApi(groupId: string, clusterId: string, path:string) {
-    // https://kubernetes.io/docs/reference/kubernetes-api/
-    return new Promise(async (resolve, reject) => {
-        let server: string = '';
-        let auth: string = '';
-        let client: string = '';
-        let key: string = '';
-        let config: any = '';
-        let url: string = ''
-
-        let groupData = JSON.parse(JSON.stringify(await k8sModel.findOne({ _id: groupId })));
-
-        async function decBase64(data: string) {
-            let buffer = Buffer.from(data, 'base64');
-            const decodedString = buffer.toString('utf-8');
-            return decodedString;
-        }
-
-        groupData.clusters.forEach(async (cluster: any) => {
-            if (cluster._id === clusterId) {
-                config = YAML.parse(cluster.kubeConfig)
-                // console.log(config);
-                // console.log(config.clusters);
-                config.clusters.forEach(async (cluster: any) => {
-                    auth = await decBase64(cluster.cluster['certificate-authority-data']);
-                    server = cluster.cluster.server;
-                });
-                config.users.forEach(async (user: any) => {
-                    client = await decBase64(user.user['client-certificate-data']);
-                    key = await decBase64(user.user['client-key-data']);
-                });
-            }
-        });
-
-        setTimeout(async () => {
-            url = server+path;
-            // switch (groupId && clusterId && (pods || nodes )) {
-            //     case pods:
-            //         url = server+pods;
-            //         break;
-            //     case nodes:
-            //         url = server+nodes;
-            //         break;
-            //     case logs:
-            //         url = server+logs;
-            //         break;
-            //     default:
-            //         resolve({Error: "No Endpoint Found..."})
-            //         break;
-            // }
-            console.log(url);
-            const httpsAgent = new https.Agent({
-                rejectUnauthorized: false,
-                ca: auth,
-                cert: client,
-                key: key,
-            });
-            
-            try {
-                let response = await axios.get(url, { httpsAgent });
-                // console.log(response.data.items);
-                resolve(response.data);
-            } catch (error) {
-                console.log(error);
-                resolve(error);
-            }
-        }, 100);
-    });
-}
-
-app.get("/clusters/:groupId/:clusterId/:deploymentName/:appName/test", async (req: any, res) => {
-    try {
-        // getAllClusterData();
-        appLogs = "Data Not Found";
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
-        let deploymentName = req.params.deploymentName;
-        let appName = req.params.appName;
-        let lines = req.params.lines;
-        // k8s-api endpoint
-        let pods: string = '/api/v1/pods'
-        let nodes: string = '/api/v1/nodes'
-        let logs: string = '/api/v1/namespaces/default/pods/adminfe-65df7bd694-6jrff/log'
-        let params: any = {
-            tailLines: '100',
-          };
-        let resApi = await k8sApi(groupId, clusterId, nodes)
-
-
-        res.send(resApi);
-
-    } catch (e) {
-        res.status(500);
-    }
-});
-// getAllClusterData();
 
 module.exports = app;
