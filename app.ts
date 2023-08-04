@@ -11,6 +11,7 @@ import K8s from "k8s";
 import fs from "fs";
 import timestamp from "time-stamp";
 import YAML from 'yaml'
+const {Readable} = require('stream') 
 
 let k8sBinary: any = 'kubectl';
 process.on("unhandledRejection", (error: Error, promise) => {
@@ -206,6 +207,25 @@ async function k8sApi(groupId: string, clusterId: string, path:string, reqType?:
     });
 }
 
+// Get all the namespaces
+app.get("/clusters/namespaces/:groupId/:clusterId", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+
+        // k8s-api endpoint
+        let namespaces: string = '/api/v1/namespaces'
+        let resApi = await k8sApi(groupId, clusterId, namespaces, 'GET')
+
+        res.send(resApi);
+        // console.log(resApi);
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get namespaces Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+
 // Get all the pods from all namespaces
 app.get("/clusters/:groupId/:clusterId/pods", async (req: any, res) => {
     try {
@@ -399,5 +419,102 @@ app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async 
         res.status(500);
     }
 });
+
+
+
+// app.get("/clusters/:groupId/:clusterId/:namespace/:podName/:appName/:h", async (req: any, res) => {
+//     return new Promise(async (resolve, reject) => {
+//     try {
+//         let groupId = req.params.groupId;
+//         let clusterId = req.params.clusterId;
+//         let namespace = req.params.namespace;
+//         let podName = req.params.podName;
+//         let appName = req.params.appName;
+//         // let sinceSeconds = req.params.h * 3600;
+//         let sinceSeconds = 120;
+
+//         // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
+//         let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&sinceSeconds=${sinceSeconds}&follow=true`;
+//         let server = 'https://192.168.130.150:6443';
+//         let url = server+hourBasedLog;
+//         let auth: string = '';
+//         let client: string = '';
+//         let key: string = '';
+//         let config: any = '';
+
+//         let groupData = JSON.parse(JSON.stringify(await k8sModel.findOne({ _id: groupId })));
+
+//         async function decBase64(data: string) {
+//             let buffer = Buffer.from(data, 'base64');
+//             const decodedString = buffer.toString('utf-8');
+//             return decodedString;
+//         }
+
+//         groupData.clusters.forEach(async (cluster: any) => {
+//             if (cluster._id === clusterId) {
+//                 config = YAML.parse(cluster.kubeConfig)
+//                 config.clusters.forEach(async (cluster: any) => {
+//                     auth = await decBase64(cluster.cluster['certificate-authority-data']);
+//                     server = cluster.cluster.server;
+//                 });
+//                 config.users.forEach(async (user: any) => {
+//                     client = await decBase64(user.user['client-certificate-data']);
+//                     key = await decBase64(user.user['client-key-data']);
+//                 });
+//             }
+//         });
+
+//         setTimeout(async () => {
+//             console.log(url);
+//             const httpsAgent = new https.Agent({
+//                 rejectUnauthorized: false,
+//                 keepAlive: true,
+//                 ca: auth,
+//                 cert: client,
+//                 key: key,
+//             });
+//             let config: any = {
+//                 url: url,
+//                 method: 'GET',
+//                 responseType: 'stream',
+//                 httpAgent: httpsAgent,
+//             }
+
+//             try {
+//                 let response: any = await axios.get(url, { httpsAgent });
+//                 const dataStream = new Readable();
+//                 dataStream._read = () => {};
+//                 response.data.on('data', (chunk: any) => {
+//                     console.log(chunk.toString());
+//                     dataStream.push(chunk);
+//                 });
+//                 response.data.on('end', () => {
+//                     // dataStream.push(null);
+
+//                 });
+//                 res.send(dataStream);
+//                 console.log(response.data);
+                
+//             } catch (error) {
+//                 res.code(500).send('Error Streaming Data.')
+//             }
+//             // axios.get(url, { httpsAgent });
+
+
+//             // console.log(response.toString());
+//             // res.send(response.toString());
+//             // resolve(response);
+//             // console.log(response.data.items);
+
+
+//         }, 100);
+
+//         // res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
+//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get ${sinceSeconds}Sec Pod Logs Res: 200`);
+//     } catch (e) {
+//         res.status(500);
+//     }
+// });
+// });
 
 module.exports = app;
