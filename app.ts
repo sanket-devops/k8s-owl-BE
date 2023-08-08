@@ -542,6 +542,12 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                             console.log(`WS Client ${clientIp} and Path ${path} is Disconnected...`);
                         }
 
+                        setTimeout(() => {
+                            request.abort();
+                            ws.close();
+                            console.log(`TIME OUT: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                        }, 60000 * 1);
+
                     })
 
                     response.on("end", () => {
