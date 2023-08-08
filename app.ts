@@ -12,6 +12,7 @@ import fs from "fs";
 import timestamp from "time-stamp";
 import YAML from 'yaml'
 const {Readable} = require('stream') 
+import WebSocket, { CLOSING, WebSocketServer } from "ws";
 
 let k8sBinary: any = 'kubectl';
 process.on("unhandledRejection", (error: Error, promise) => {
@@ -37,6 +38,7 @@ const boom = require("boom");
 const bodyParser = require("body-parser");
 const hostname = "0.0.0.0";
 const port = 8008;
+const WebSocketPort = 8009;
 let k8sModel = require("./k8s.model");
 let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-owl?authSource=admin';
 // let db = "mongodb://admin:admin@192.168.10.166:32717/k8s-api-BE?authSource=admin";
@@ -58,6 +60,10 @@ mongoose
 app.listen({ port: port, host: hostname }, function () {
     console.log(`k8s-owl-BE app listen at : http://${hostname}:${port}`);
 });
+
+const wss = new WebSocketServer({ port: WebSocketPort }, function () {
+    console.log(`k8s-owl-BE-Wss listen at : http://${hostname}:${WebSocketPort}`);
+  });
 
 function getEncryptedData(data: any) {
     let encryptMe;
@@ -420,101 +426,153 @@ app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async 
     }
 });
 
+// wss.on('connection', (ws, req) => {
+//     // Handles new connection
+//     let clientIp = req.socket.remoteAddress;
+//     console.log(`WS Client ${clientIp} is Connected...`)
+//     ws.on('message', (data) => {
+//         console.log(`Recived message from client: ${data}`);
+//         ws.send(`Server: Yes I am ${data}`)
+//     })
+//     ws.send(`Hello, This is WS from K8s-Owl-BE...`)
+
+//     let i = 0;
+//     const interval = setInterval(() => {
+//       ws.send(`Data chunk ${i}\n`);
+//       i++;
+//     }, 1000);
+
+//     ws.on('error', console.error);
+//     ws.on('close', function close() {
+//         console.log(`WS Client ${clientIp} is Disconnected...`);
+//     });
+// })
 
 
-// app.get("/clusters/:groupId/:clusterId/:namespace/:podName/:appName/:h", async (req: any, res) => {
-//     return new Promise(async (resolve, reject) => {
-//     try {
-//         let groupId = req.params.groupId;
-//         let clusterId = req.params.clusterId;
-//         let namespace = req.params.namespace;
-//         let podName = req.params.podName;
-//         let appName = req.params.appName;
-//         // let sinceSeconds = req.params.h * 3600;
-//         let sinceSeconds = 120;
+app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tailLines", async (req: any, res) => {
+  return new Promise <void>(async (resolve, reject) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
+        let podName = req.params.podName;
+        let appName = req.params.appName;
+        let tailLines = req.params.tailLines;
 
-//         // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
-//         let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&sinceSeconds=${sinceSeconds}&follow=true`;
-//         let server = 'https://192.168.130.150:6443';
-//         let url = server+hourBasedLog;
-//         let auth: string = '';
-//         let client: string = '';
-//         let key: string = '';
-//         let config: any = '';
+        // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
+        let path: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&tailLines=${tailLines}&follow=true`;
+        let server = "";
+        let auth: string = "";
+        let client: string = "";
+        let key: string = "";
+        let config: any = "";
 
-//         let groupData = JSON.parse(JSON.stringify(await k8sModel.findOne({ _id: groupId })));
+        let groupData = JSON.parse(
+            JSON.stringify(await k8sModel.findOne({ _id: groupId }))
+        );
 
-//         async function decBase64(data: string) {
-//             let buffer = Buffer.from(data, 'base64');
-//             const decodedString = buffer.toString('utf-8');
-//             return decodedString;
-//         }
+        async function decBase64(data: string) {
+            let buffer = Buffer.from(data, "base64");
+            const decodedString = buffer.toString("utf-8");
+            return decodedString;
+        }
 
-//         groupData.clusters.forEach(async (cluster: any) => {
-//             if (cluster._id === clusterId) {
-//                 config = YAML.parse(cluster.kubeConfig)
-//                 config.clusters.forEach(async (cluster: any) => {
-//                     auth = await decBase64(cluster.cluster['certificate-authority-data']);
-//                     server = cluster.cluster.server;
-//                 });
-//                 config.users.forEach(async (user: any) => {
-//                     client = await decBase64(user.user['client-certificate-data']);
-//                     key = await decBase64(user.user['client-key-data']);
-//                 });
-//             }
-//         });
+        groupData.clusters.forEach(async (cluster: any) => {
+            if (cluster._id === clusterId) {
+                config = YAML.parse(cluster.kubeConfig);
+                config.clusters.forEach(async (cluster: any) => {
+                    auth = await decBase64(cluster.cluster["certificate-authority-data"]);
+                    server = cluster.cluster.server;
+                });
+                config.users.forEach(async (user: any) => {
+                    client = await decBase64(user.user["client-certificate-data"]);
+                    key = await decBase64(user.user["client-key-data"]);
+                });
+            }
+        });
 
-//         setTimeout(async () => {
-//             console.log(url);
-//             const httpsAgent = new https.Agent({
-//                 rejectUnauthorized: false,
-//                 keepAlive: true,
-//                 ca: auth,
-//                 cert: client,
-//                 key: key,
-//             });
-//             let config: any = {
-//                 url: url,
-//                 method: 'GET',
-//                 responseType: 'stream',
-//                 httpAgent: httpsAgent,
-//             }
+        setTimeout(async () => {
+            let url = server+path;
+            console.log(url);
+            const httpsAgent = new https.Agent({
+                rejectUnauthorized: false,
+                ca: auth,
+                cert: client,
+                key: key
+            });
+            const options = {
+                method: "GET",
+                agent: httpsAgent,
+            };
 
-//             try {
-//                 let response: any = await axios.get(url, { httpsAgent });
-//                 const dataStream = new Readable();
-//                 dataStream._read = () => {};
-//                 response.data.on('data', (chunk: any) => {
-//                     console.log(chunk.toString());
-//                     dataStream.push(chunk);
-//                 });
-//                 response.data.on('end', () => {
-//                     // dataStream.push(null);
+            try {
+                const request = https.request(url, options, (response) => {
 
-//                 });
-//                 res.send(dataStream);
-//                 console.log(response.data);
-                
-//             } catch (error) {
-//                 res.code(500).send('Error Streaming Data.')
-//             }
-//             // axios.get(url, { httpsAgent });
+                    if (response.statusCode === 200) {
+                        res.send({ "id": `${podName}-${appName}` });
+                        // console.log("response: ", response.statusCode);
+                        resolve();
+                    }
+                    else {
+                        // console.log("response: ", response.statusCode);
+                        res.status(401);
+                        resolve();
+                    }
 
+                    wss.on('connection', (ws, req) => {
+                        // Handles new connection
+                        let clientIp = req.socket.remoteAddress;
+                        let path = req.url;
+                        
+                        if (path === `/${podName}-${appName}`) {
+                            console.log(`WS Client ${clientIp} and Path ${path} is Connected...`)
+                            console.log(path);
+                            response.on("data", (chunk) => {
+                                ws.send(chunk.toString());
+                                console.log(chunk);
+                            });
+                        }
 
-//             // console.log(response.toString());
-//             // res.send(response.toString());
-//             // resolve(response);
-//             // console.log(response.data.items);
+                        ws.on('error', console.error);
+                        
+                        if (path === `/${podName}-${appName}/stop`) {
+                            console.log(path);
+                            request.abort();
+                            ws.close();
+                            console.log(`WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                        }
 
+                    })
 
-//         }, 100);
+                    response.on("end", () => {
+                        console.log("Log streaming ended.");
+                    });
+                });
 
-//         // res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
-//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get ${sinceSeconds}Sec Pod Logs Res: 200`);
-//     } catch (e) {
-//         res.status(500);
-//     }
-// });
-// });
+                // Event listener for handling errors
+                request.on("error", (err) => {
+                    console.error("Error occurred:", err);
+                    // res.send(err);
+                });
+
+                // Send the request
+                request.end();
+            } catch (error) {
+                res.code(500).send('Error Streaming Data.')
+            }
+        }, 1000);
+
+        // res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
+        console.log(
+            "GroupId: " + groupId,
+            "ClusterId: " + clusterId,
+            "podName: " + podName,
+            "appName: " + appName + ` => Get ${tailLines} lines and follow Pod Logs Res: 200`
+        );
+    } catch (e) {
+        res.status(500);
+    }
+});
+});
 
 module.exports = app;
