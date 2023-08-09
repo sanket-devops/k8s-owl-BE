@@ -308,6 +308,24 @@ app.get("/clusters/:groupId/:clusterId/:namespace/:podName/:appName", async (req
     }
 });
 
+app.get("/clusters/previous/:groupId/:clusterId/:namespace/:podName/:appName", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
+        let podName = req.params.podName;
+        let appName = req.params.appName;
+
+        // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&previous=true
+        let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&previous=true`;
+
+        res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'podName: ' + podName, 'appName: ' + appName + ` => Get Full Previous Pod Logs Res: 200`);
+    } catch (e) {
+        res.status(500);
+    }
+});
+
 // Get Hourly based Deployment logs.
 app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h", async (req: any, res) => {
     try {
@@ -534,19 +552,26 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                         }
 
                         ws.on('error', console.error);
+                        ws.on('close', function close() {
+                            console.log(`CONNECTION CLOSE: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                          });
                         
                         if (path === `/${podName}-${appName}/stop`) {
-                            console.log(path);
-                            request.abort();
-                            ws.close();
-                            console.log(`WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                            setTimeout(() => {
+                                console.log(path);
+                                request.abort();
+                                ws.close(1000, `WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                                // ws.terminate();
+                                console.log(`WS Client ${clientIp} and Path ${path} is Disconnected...`);
+                            }, 100);
                         }
 
                         setTimeout(() => {
                             request.abort();
                             ws.close();
+                            // ws.terminate();
                             console.log(`TIME OUT: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
-                        }, 60000 * 1);
+                        }, 60000 * 5);
 
                     })
 
