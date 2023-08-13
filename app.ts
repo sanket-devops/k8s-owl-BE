@@ -143,6 +143,42 @@ app.post("/clusters/cluster-delete", async (req: any, res) => {
     }
 });
 
+async function getClusterAccess(groupId: string, clusterId: string) {
+    return new Promise(async(resolve, reject) => {
+        let groupData = JSON.parse(
+            JSON.stringify(await k8sModel.findOne({ _id: groupId }))
+        );
+        async function decBase64(data: string) {
+            let buffer = Buffer.from(data, "base64");
+            const decodedString = buffer.toString("utf-8");
+            return decodedString;
+        }
+        groupData.clusters.forEach(async (cluster: any) => {
+            if (cluster._id === clusterId) {
+                let server: string, auth: string, client: string, key: string;
+                let config = YAML.parse(cluster.kubeConfig);
+                config.clusters.forEach(async (cluster: any) => {
+                    auth = await decBase64(cluster.cluster["certificate-authority-data"]);
+                    server = cluster.cluster.server;
+                });
+                config.users.forEach(async (user: any) => {
+                    client = await decBase64(user.user["client-certificate-data"]);
+                    key = await decBase64(user.user["client-key-data"]);
+                });
+                setTimeout(async() => {
+                    // console.log(server);
+                    resolve({server: server, auth: auth, client: client, key: key})
+                }, 1);
+            }
+        });
+    })
+
+    
+}
+// getClusterAccess('64c27a608ad416edfe7806c7', '64c27a608ad416edfe7806c8').then((data: any) => {
+//     console.log(data);
+// });
+
 // Kubernetes API function
 async function k8sApi(groupId: string, clusterId: string, path:string, reqType?: any) {
     // https://kubernetes.io/docs/reference/kubernetes-api/
@@ -326,106 +362,6 @@ app.get("/clusters/previous/:groupId/:clusterId/:namespace/:podName/:appName", a
     }
 });
 
-// Get Hourly based Deployment logs.
-app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName/:h", async (req: any, res) => {
-    try {
-        let HourlyLogs: any = [];
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
-        let namespace = req.params.namespace;
-        let deploymentName = req.params.deploymentName;
-        let sinceSeconds = req.params.h * 3600;
-
-        let pods: string = `/api/v1/namespaces/${namespace}/pods`;
-        let getPodsData: any = await k8sApi(groupId, clusterId, pods);
-
-        function getHourlyLogs(podName: any, containerName: any) {
-            return new Promise((resolve, reject) => {
-                let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}&sinceSeconds=${sinceSeconds}`;
-                let logs = k8sApi(groupId, clusterId, hourBasedLog)
-                HourlyLogs.push(`\n>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<\n`);
-                resolve(logs);
-            });
-        }
-
-        async function promiseLoopHourlyLogs() {
-            for (let pod = 0; pod < getPodsData.items.length; pod++) {
-                if (deploymentName === getPodsData.items[pod].metadata.labels.app) {
-                    // console.log(getPodsData.items[pod].metadata.labels.app);
-                    for (let container = 0; container < getPodsData.items[pod].spec.containers.length; container++) {
-                        // console.log(getPodsData.items[pod].spec.containers[container].name);
-                        try {
-                            await getHourlyLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
-                                HourlyLogs.push(logs);
-                                HourlyLogs.push(`\n>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
-                            })
-                        } catch (error) {
-                            console.log(error);
-                        }
-                    }
-                }
-            }
-            // console.log(HourlyLogs);
-            return HourlyLogs;
-        }
-
-        res.send({"data": await promiseLoopHourlyLogs()});
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'Deployment Name: ' + deploymentName + ` => Get ${sinceSeconds}Sec Pod Logs Res: 200`);
-    } catch (e) {
-        res.status(500);
-    }
-});
-
-// Get Full Deployment logs.
-app.get("/clusters/HourlyLog/:groupId/:clusterId/:namespace/:deploymentName", async (req: any, res) => {
-    try {
-        let HourlyLogs: any = [];
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
-        let namespace = req.params.namespace;
-        let deploymentName = req.params.deploymentName;
-
-        let pods: string = `/api/v1/namespaces/${namespace}/pods`;
-        let getPodsData: any = await k8sApi(groupId, clusterId, pods);
-
-        function getFullLogs(podName: any, containerName: any) {
-            return new Promise((resolve, reject) => {
-                let hourBasedLog: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${containerName}`;
-                let logs = k8sApi(groupId, clusterId, hourBasedLog)
-                HourlyLogs.push(`\n>>>>>>>> Log ${podName} => ${containerName} Start <<<<<<<<\n`);
-                resolve(logs);
-            });
-        }
-
-        async function promiseLoopFullLogs() {
-            for (let pod = 0; pod < getPodsData.items.length; pod++) {
-                if (deploymentName === getPodsData.items[pod].metadata.labels.app) {
-                    // console.log(getPodsData.items[pod].metadata.labels.app);
-                    for (let container = 0; container < getPodsData.items[pod].spec.containers.length; container++) {
-                        // console.log(getPodsData.items[pod].spec.containers[container].name);
-                        try {
-                            await getFullLogs(getPodsData.items[pod].metadata.name, getPodsData.items[pod].spec.containers[container].name).then((logs: any) => {
-                                HourlyLogs.push(logs);
-                                HourlyLogs.push(`\n>>>>>>>> Log ${getPodsData.items[pod].metadata.name} => ${getPodsData.items[pod].spec.containers[container].name} End <<<<<<<<\n`);
-                            })
-                        } catch (error) {
-                            console.log(error);
-                        }
-                    }
-                }
-                
-            }
-            // console.log(HourlyLogs);
-            return HourlyLogs;
-        }
-
-        res.send({"data": await promiseLoopFullLogs()});
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId, 'Deployment Name: ' + deploymentName + ` => Get Full Deployment Logs Res: 200`);
-    } catch (e) {
-        res.status(500);
-    }
-});
-
 // Delete pod.
 app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async (req: any, res) => {
     try {
@@ -444,79 +380,25 @@ app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async 
     }
 });
 
-// wss.on('connection', (ws, req) => {
-//     // Handles new connection
-//     let clientIp = req.socket.remoteAddress;
-//     console.log(`WS Client ${clientIp} is Connected...`)
-//     ws.on('message', (data) => {
-//         console.log(`Recived message from client: ${data}`);
-//         ws.send(`Server: Yes I am ${data}`)
-//     })
-//     ws.send(`Hello, This is WS from K8s-Owl-BE...`)
-
-//     let i = 0;
-//     const interval = setInterval(() => {
-//       ws.send(`Data chunk ${i}\n`);
-//       i++;
-//     }, 1000);
-
-//     ws.on('error', console.error);
-//     ws.on('close', function close() {
-//         console.log(`WS Client ${clientIp} is Disconnected...`);
-//     });
-// })
-
 
 app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tailLines", async (req: any, res) => {
-  return new Promise <void>(async (resolve, reject) => {
-    try {
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
-        let namespace = req.params.namespace;
-        let podName = req.params.podName;
-        let appName = req.params.appName;
-        let tailLines = req.params.tailLines;
+    return new Promise<void>(async (resolve, reject) => {
+        getClusterAccess(req.params.groupId, req.params.clusterId).then((data: any) => {
+            let namespace = req.params.namespace,
+                podName = req.params.podName,
+                appName = req.params.appName,
+                tailLines = req.params.tailLines;
 
-        // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
-        let path: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&tailLines=${tailLines}&follow=true`;
-        let server = "";
-        let auth: string = "";
-        let client: string = "";
-        let key: string = "";
-        let config: any = "";
+            // k8s-api endpoint https://localhost:6443/api/v1/namespaces/default/pods/frontend-c54c4c6c6-bxmr8/log?container=${appName}&sinceSeconds=${sinceSeconds}
+            let path: string = `/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${appName}&tailLines=${tailLines}&follow=true`;
 
-        let groupData = JSON.parse(
-            JSON.stringify(await k8sModel.findOne({ _id: groupId }))
-        );
-
-        async function decBase64(data: string) {
-            let buffer = Buffer.from(data, "base64");
-            const decodedString = buffer.toString("utf-8");
-            return decodedString;
-        }
-
-        groupData.clusters.forEach(async (cluster: any) => {
-            if (cluster._id === clusterId) {
-                config = YAML.parse(cluster.kubeConfig);
-                config.clusters.forEach(async (cluster: any) => {
-                    auth = await decBase64(cluster.cluster["certificate-authority-data"]);
-                    server = cluster.cluster.server;
-                });
-                config.users.forEach(async (user: any) => {
-                    client = await decBase64(user.user["client-certificate-data"]);
-                    key = await decBase64(user.user["client-key-data"]);
-                });
-            }
-        });
-
-        setTimeout(async () => {
-            let url = server+path;
-            console.log(url);
+            let url = data.server + path;
+            // console.log(url);
             const httpsAgent = new https.Agent({
                 rejectUnauthorized: false,
-                ca: auth,
-                cert: client,
-                key: key
+                ca: data.auth,
+                cert: data.client,
+                key: data.key
             });
             const options = {
                 method: "GET",
@@ -524,15 +406,12 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
             };
 
             try {
-                const request = https.request(url, options, (response) => {
-
+                let request = https.request(url, options, (response) => {
                     if (response.statusCode === 200) {
                         res.send({ "id": `${podName}-${appName}` });
-                        // console.log("response: ", response.statusCode);
                         resolve();
                     }
                     else {
-                        // console.log("response: ", response.statusCode);
                         res.status(401);
                         resolve();
                     }
@@ -541,7 +420,6 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                         // Handles new connection
                         let clientIp = req.socket.remoteAddress;
                         let path = req.url;
-                        
                         if (path === `/${podName}-${appName}`) {
                             console.log(`WS Client ${clientIp} and Path ${path} is Connected...`)
                             console.log(path);
@@ -550,12 +428,10 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                                 console.log(chunk);
                             });
                         }
-
                         ws.on('error', console.error);
                         ws.on('close', function close() {
                             console.log(`CONNECTION CLOSE: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
-                          });
-                        
+                        });
                         if (path === `/${podName}-${appName}/stop`) {
                             setTimeout(() => {
                                 console.log(path);
@@ -571,10 +447,8 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                             ws.close();
                             // ws.terminate();
                             console.log(`TIME OUT: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
-                        }, 60000 * 5);
-
+                        }, 60000 * 1);
                     })
-
                     response.on("end", () => {
                         console.log("Log streaming ended.");
                     });
@@ -591,19 +465,14 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
             } catch (error) {
                 res.code(500).send('Error Streaming Data.')
             }
-        }, 1000);
-
-        // res.send({"data": await k8sApi(groupId, clusterId, hourBasedLog)});
-        console.log(
-            "GroupId: " + groupId,
-            "ClusterId: " + clusterId,
-            "podName: " + podName,
-            "appName: " + appName + ` => Get ${tailLines} lines and follow Pod Logs Res: 200`
-        );
-    } catch (e) {
-        res.status(500);
-    }
-});
+            console.log(
+                "GroupId: " + req.params.groupId,
+                "ClusterId: " + req.params.clusterId,
+                "podName: " + podName,
+                "appName: " + appName + ` => Get ${tailLines} lines and follow Pod Logs Res: 200`
+            );
+        });
+    });
 });
 
 module.exports = app;
