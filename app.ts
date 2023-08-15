@@ -175,9 +175,6 @@ async function getClusterAccess(groupId: string, clusterId: string) {
 
     
 }
-// getClusterAccess('64c27a608ad416edfe7806c7', '64c27a608ad416edfe7806c8').then((data: any) => {
-//     console.log(data);
-// });
 
 // Kubernetes API function
 async function k8sApi(groupId: string, clusterId: string, path:string, reqType?: any) {
@@ -380,7 +377,7 @@ app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async 
     }
 });
 
-
+// Get follow logs from cluster
 app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tailLines", async (req: any, res) => {
     return new Promise<void>(async (resolve, reject) => {
         getClusterAccess(req.params.groupId, req.params.clusterId).then((data: any) => {
@@ -471,6 +468,42 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                 "podName: " + podName,
                 "appName: " + appName + ` => Get ${tailLines} lines and follow Pod Logs Res: 200`
             );
+        });
+    });
+});
+
+
+// Get deployment list from the cluster using perticuler namespace then rollout and restart.
+app.get("/clusters/restart/:groupId/:clusterId/:namespace/:name", async (req: any, res) => {
+    return new Promise<void>(async (resolve, reject) => {
+        let namespace = req.params.namespace;
+        let name = req.params.name
+        getClusterAccess(req.params.groupId, req.params.clusterId).then(async (data: any) => {
+            // k8s-api endpoint
+            let path: string = `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`;
+
+            let url = data.server + path;
+            console.log(url);
+            const httpsAgent = new https.Agent({
+                rejectUnauthorized: false,
+                ca: data.auth,
+                cert: data.client,
+                key: data.key
+            });
+            const options = {
+                method: "GET",
+                agent: httpsAgent,
+            };
+            let resApi: any = await axios.get(url, { httpsAgent });
+            let deploymentManifest = resApi.data;
+            if (deploymentManifest.spec.template.metadata.labels.restart) {
+                deploymentManifest.spec.template.metadata.labels.restart = (parseInt(deploymentManifest.spec.template.metadata.labels.restart) + 1).toString();
+            }
+            else {
+                deploymentManifest.spec.template.metadata.labels.restart = "1";
+            }
+            let rolloutRestart = await axios.put(url, deploymentManifest, { httpsAgent });
+            resolve(rolloutRestart.data);
         });
     });
 });
