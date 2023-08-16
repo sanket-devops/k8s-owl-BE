@@ -473,7 +473,7 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
 });
 
 
-// Get deployment list from the cluster using perticuler namespace then rollout and restart.
+// Get deployment manifest from the cluster using perticuler namespace then rollout and restart.
 app.get("/clusters/restart/:groupId/:clusterId/:namespace/:name", async (req: any, res) => {
     return new Promise<void>(async (resolve, reject) => {
         let namespace = req.params.namespace;
@@ -504,6 +504,69 @@ app.get("/clusters/restart/:groupId/:clusterId/:namespace/:name", async (req: an
             }
             let rolloutRestart = await axios.put(url, deploymentManifest, { httpsAgent });
             resolve(rolloutRestart.data);
+        });
+    });
+});
+
+// Get deployment manifest from the cluster using perticuler namespace then patch.
+app.get("/clusters/manifest/:groupId/:clusterId/:namespace/:name", async (req: any, res) => {
+    return new Promise<void>(async (resolve, reject) => {
+        let namespace = req.params.namespace;
+        let name = req.params.name
+        getClusterAccess(req.params.groupId, req.params.clusterId).then(async (data: any) => {
+            // k8s-api endpoint
+            let path: string = `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`;
+
+            let url = data.server + path;
+            console.log(url);
+            const httpsAgent = new https.Agent({
+                rejectUnauthorized: false,
+                ca: data.auth,
+                cert: data.client,
+                key: data.key
+            });
+            const options = {
+                method: "GET",
+                agent: httpsAgent,
+            };
+            let resApi: any = await axios.get(url, { httpsAgent });
+            let deploymentManifest = resApi.data;
+            resolve(deploymentManifest);
+        });
+    });
+});
+
+// Patch deployment manifest and then rollout restart update deployment.
+app.post("/clusters/cluster/deployment/update-deployment", async (req: any, res) => {
+    let reqData = req.body;
+    // console.log(req.body);
+    return new Promise(async (resolve, reject) => {
+        let namespace = reqData.namespace;
+        let name = reqData.deploymentName
+        getClusterAccess(reqData.groupId, reqData.clusterId).then(async (data: any) => {
+            // k8s-api endpoint
+            let path: string = `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`;
+
+            let url = data.server + path;
+            console.log(url);
+            const httpsAgent = new https.Agent({
+                rejectUnauthorized: false,
+                ca: data.auth,
+                cert: data.client,
+                key: data.key
+            });
+            const options = {
+                method: "GET",
+                agent: httpsAgent,
+            };
+            try {
+                let updateDeployment = await axios.put(url, JSON.parse(reqData.data), { httpsAgent });
+                resolve(updateDeployment.data);
+            } catch (error) {
+                console.log(error);
+                res.status(400);
+                resolve(error.response)
+            }
         });
     });
 });
