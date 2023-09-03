@@ -211,7 +211,7 @@ async function k8sApi(groupId: string, clusterId: string, path:string, reqType?:
 
         setTimeout(async () => {
             url = server+path;
-            console.log(url);
+            // console.log(url);
             const httpsAgent = new https.Agent({
                 rejectUnauthorized: false,
                 ca: auth,
@@ -293,6 +293,68 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
         // k8s-api endpoint
         let pods: string = `/api/v1/namespaces/${namespace}/pods`;
         let resApi = await k8sApi(groupId, clusterId, pods, "GET");
+        // console.log(resApi);
+
+        res.send(resApi);
+        // console.log(resApi);
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+// Get pod details from the cluster using perticuler namespace.
+app.get("/clusters/:groupId/:clusterId/nodes", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+
+        // k8s-api endpoint
+        let nodes: string = `/api/v1/nodes`;
+        let resApi = await k8sApi(groupId, clusterId, nodes, "GET");
+        console.log(resApi);
+
+        res.send(resApi);
+        // console.log(resApi);
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+
+app.get("/clusters/metrics/:groupId/:clusterId/:namespace/pods", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace
+
+        // k8s-api endpoint
+        // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
+        // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
+        let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
+
+        let resApi = await k8sApi(groupId, clusterId, podsMetrics, "GET");
+        console.log(resApi);
+
+        res.send(resApi);
+        // console.log(resApi);
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+    } catch (e) {
+        res.status(500);
+    }
+});
+app.get("/clusters/metrics/:groupId/:clusterId/nodes", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace
+
+        // k8s-api endpoint
+        // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
+        let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
+        // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
+
+        let resApi = await k8sApi(groupId, clusterId, podsMetrics, "GET");
+        console.log(resApi);
 
         res.send(resApi);
         // console.log(resApi);
