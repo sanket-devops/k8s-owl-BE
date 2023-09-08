@@ -13,6 +13,7 @@ import timestamp from "time-stamp";
 import YAML from 'yaml'
 const {Readable} = require('stream') 
 import WebSocket, { CLOSING, WebSocketServer } from "ws";
+import { string } from "yaml/dist/schema/common/string";
 
 let k8sBinary: any = 'kubectl';
 process.on("unhandledRejection", (error: Error, promise) => {
@@ -302,24 +303,25 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
         res.status(500);
     }
 });
-// Get pod details from the cluster using perticuler namespace.
-app.get("/clusters/:groupId/:clusterId/nodes", async (req: any, res) => {
-    try {
-        let groupId = req.params.groupId;
-        let clusterId = req.params.clusterId;
 
-        // k8s-api endpoint
-        let nodes: string = `/api/v1/nodes`;
-        let resApi = await k8sApi(groupId, clusterId, nodes, "GET");
-        console.log(resApi);
+// Get Nodes details from the cluster.
+// app.get("/clusters/:groupId/:clusterId/nodes", async (req: any, res) => {
+//     try {
+//         let groupId = req.params.groupId;
+//         let clusterId = req.params.clusterId;
 
-        res.send(resApi);
-        // console.log(resApi);
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
-    } catch (e) {
-        res.status(500);
-    }
-});
+//         // k8s-api endpoint
+//         let nodes: string = `/api/v1/nodes`;
+//         let resApi = await k8sApi(groupId, clusterId, nodes, "GET");
+//         console.log(resApi);
+
+//         res.send(resApi);
+//         // console.log(resApi);
+//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+//     } catch (e) {
+//         res.status(500);
+//     }
+// });
 
 app.get("/clusters/metrics/:groupId/:clusterId/:namespace/pods", async (req: any, res) => {
     try {
@@ -333,7 +335,7 @@ app.get("/clusters/metrics/:groupId/:clusterId/:namespace/pods", async (req: any
         let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
 
         let resApi = await k8sApi(groupId, clusterId, podsMetrics, "GET");
-        console.log(resApi);
+        // console.log(resApi);
 
         res.send(resApi);
         // console.log(resApi);
@@ -342,21 +344,96 @@ app.get("/clusters/metrics/:groupId/:clusterId/:namespace/pods", async (req: any
         res.status(500);
     }
 });
-app.get("/clusters/metrics/:groupId/:clusterId/nodes", async (req: any, res) => {
+
+// Get nodes with Metrics Data
+// app.get("/clusters/metrics/:groupId/:clusterId/nodes", async (req: any, res) => {
+//     try {
+//         let groupId = req.params.groupId;
+//         let clusterId = req.params.clusterId;
+//         let namespace = req.params.namespace
+
+//         // k8s-api endpoint
+//         // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
+//         let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
+//         // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
+
+//         let resApi = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
+//         // console.log(resApi);
+
+//         res.send(resApi);
+//         // console.log(resApi);
+//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+//     } catch (e) {
+//         res.status(500);
+//     }
+// });
+app.get("/clusters/:groupId/:clusterId/nodesMetricsMix", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
-        let namespace = req.params.namespace
-
+        let finalNodesData: any[] = [];
+        let tempData: any[] = [];
         // k8s-api endpoint
-        // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
-        let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
-        // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
-
-        let resApi = await k8sApi(groupId, clusterId, podsMetrics, "GET");
-        console.log(resApi);
-
-        res.send(resApi);
+        let nodes: string = `/api/v1/nodes`;
+        let getNodes: any = await k8sApi(groupId, clusterId, nodes, "GET");
+        let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
+        let getNodesMetrics: any = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
+        // console.log(getNodes.items);
+        // console.log(getNodesMetrics.items);
+        if (getNodes.items && getNodesMetrics.items) {
+            console.log("Metrics");
+            for (let i = 0; i < getNodes.items.length; i++) {
+                let nodesData: any = {}
+                // console.log(this.nodesData[i]);
+                nodesData.name = getNodes.items[i].metadata.name;
+                nodesData.age = getNodes.items[i].metadata.creationTimestamp;
+                nodesData.totalMemory = getNodes.items[i].status.capacity.memory;
+                nodesData.totalCpu = getNodes.items[i].status.capacity.cpu;
+                nodesData.runtime = getNodes.items[i].status.nodeInfo.containerRuntimeVersion;
+                nodesData.kubelet = getNodes.items[i].status.nodeInfo.kubeletVersion;
+                nodesData.hostOs = getNodes.items[i].status.nodeInfo.osImage;
+                getNodes.items[i].status.addresses.forEach((address: any) => {
+                  if (address.type === 'InternalIP') {
+                    nodesData.address = address.address
+                  }
+                });
+                tempData.push(nodesData);
+            }
+    
+            for (let j = 0; j < getNodesMetrics.items.length; j++) {
+                // console.log(this.nodeMetricsData[j]);
+                tempData.forEach((node: any) => {
+                  if (getNodesMetrics.items[j].metadata.name === node.name) {
+                    node.usageMemory = getNodesMetrics.items[j].usage.memory;
+                    node.usageCpu = getNodesMetrics.items[j].usage.cpu;
+                    finalNodesData.push(node)
+                  }
+                });
+              }
+        }
+        else if (getNodes) {
+            console.log("No metrics");
+            for (let i = 0; i < getNodes.items.length; i++) {
+                let nodesData: any = {}
+                // console.log(this.nodesData[i]);
+                nodesData.name = getNodes.items[i].metadata.name;
+                nodesData.age = getNodes.items[i].metadata.creationTimestamp;
+                nodesData.totalMemory = getNodes.items[i].status.capacity.memory;
+                nodesData.totalCpu = getNodes.items[i].status.capacity.cpu;
+                nodesData.runtime = getNodes.items[i].status.nodeInfo.containerRuntimeVersion;
+                nodesData.kubelet = getNodes.items[i].status.nodeInfo.kubeletVersion;
+                nodesData.hostOs = getNodes.items[i].status.nodeInfo.osImage;
+                nodesData.usageMemory = "No Data";
+                nodesData.usageCpu = "No Data";
+                getNodes.items[i].status.addresses.forEach((address: any) => {
+                  if (address.type === 'InternalIP') {
+                    nodesData.address = address.address
+                  }
+                });
+                finalNodesData.push(nodesData);
+            }
+        }
+        res.send(finalNodesData);
         // console.log(resApi);
         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
     } catch (e) {
