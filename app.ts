@@ -304,69 +304,22 @@ app.get("/clusters/:groupId/:clusterId/:namespace/pods", async (req: any, res) =
     }
 });
 
-// Get Nodes details from the cluster.
-// app.get("/clusters/:groupId/:clusterId/nodes", async (req: any, res) => {
-//     try {
-//         let groupId = req.params.groupId;
-//         let clusterId = req.params.clusterId;
-
-//         // k8s-api endpoint
-//         let nodes: string = `/api/v1/nodes`;
-//         let resApi = await k8sApi(groupId, clusterId, nodes, "GET");
-//         console.log(resApi);
-
-//         res.send(resApi);
-//         // console.log(resApi);
-//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
-//     } catch (e) {
-//         res.status(500);
-//     }
-// });
-
-app.get("/clusters/metrics/:groupId/:clusterId/:namespace/pods", async (req: any, res) => {
+// Get services from the specific namespace.
+app.get("/clusters/:groupId/:clusterId/:namespace/services", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
         let clusterId = req.params.clusterId;
         let namespace = req.params.namespace
-
         // k8s-api endpoint
-        // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
-        // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
-        let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
-
-        let resApi = await k8sApi(groupId, clusterId, podsMetrics, "GET");
-        // console.log(resApi);
-
+        let services: string = `/api/v1/namespaces/${namespace}/services`;
+        let resApi = await k8sApi(groupId, clusterId, services, "GET");
         res.send(resApi);
-        // console.log(resApi);
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get services Res: 200");
     } catch (e) {
         res.status(500);
     }
 });
 
-// Get nodes with Metrics Data
-// app.get("/clusters/metrics/:groupId/:clusterId/nodes", async (req: any, res) => {
-//     try {
-//         let groupId = req.params.groupId;
-//         let clusterId = req.params.clusterId;
-//         let namespace = req.params.namespace
-
-//         // k8s-api endpoint
-//         // let pod: string = `/api/v1/namespaces/${namespace}/pods/${podName}/status`;
-//         let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
-//         // let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
-
-//         let resApi = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
-//         // console.log(resApi);
-
-//         res.send(resApi);
-//         // console.log(resApi);
-//         console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
-//     } catch (e) {
-//         res.status(500);
-//     }
-// });
 app.get("/clusters/:groupId/:clusterId/nodesMetricsMix", async (req: any, res) => {
     try {
         let groupId = req.params.groupId;
@@ -378,67 +331,43 @@ app.get("/clusters/:groupId/:clusterId/nodesMetricsMix", async (req: any, res) =
         let getNodes: any = await k8sApi(groupId, clusterId, nodes, "GET");
         let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
         let getNodesMetrics: any = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
-        // console.log(getNodes.items);
-        // console.log(getNodesMetrics.items);
-        if (getNodes.items && getNodesMetrics.items) {
-            console.log("Metrics");
-            for (let i = 0; i < getNodes.items.length; i++) {
-                let nodesData: any = {}
-                // console.log(this.nodesData[i]);
-                nodesData.name = getNodes.items[i].metadata.name;
-                nodesData.age = getNodes.items[i].metadata.creationTimestamp;
-                nodesData.totalMemory = getNodes.items[i].status.capacity.memory;
-                nodesData.totalCpu = getNodes.items[i].status.capacity.cpu;
-                nodesData.runtime = getNodes.items[i].status.nodeInfo.containerRuntimeVersion;
-                nodesData.kubelet = getNodes.items[i].status.nodeInfo.kubeletVersion;
-                nodesData.hostOs = getNodes.items[i].status.nodeInfo.osImage;
-                getNodes.items[i].status.addresses.forEach((address: any) => {
-                  if (address.type === 'InternalIP') {
-                    nodesData.address = address.address
-                  }
-                });
-                tempData.push(nodesData);
-            }
-    
+        for (let i = 0; i < getNodes.items.length; i++) {
             for (let j = 0; j < getNodesMetrics.items.length; j++) {
-                // console.log(this.nodeMetricsData[j]);
-                tempData.forEach((node: any) => {
-                  if (getNodesMetrics.items[j].metadata.name === node.name) {
-                    node.usageMemory = getNodesMetrics.items[j].usage.memory;
-                    node.usageCpu = getNodesMetrics.items[j].usage.cpu;
-                    finalNodesData.push(node)
-                  }
-                });
-              }
-        }
-        else if (getNodes) {
-            console.log("No metrics");
-            for (let i = 0; i < getNodes.items.length; i++) {
-                let nodesData: any = {}
-                // console.log(this.nodesData[i]);
-                nodesData.name = getNodes.items[i].metadata.name;
-                nodesData.age = getNodes.items[i].metadata.creationTimestamp;
-                nodesData.totalMemory = getNodes.items[i].status.capacity.memory;
-                nodesData.totalCpu = getNodes.items[i].status.capacity.cpu;
-                nodesData.runtime = getNodes.items[i].status.nodeInfo.containerRuntimeVersion;
-                nodesData.kubelet = getNodes.items[i].status.nodeInfo.kubeletVersion;
-                nodesData.hostOs = getNodes.items[i].status.nodeInfo.osImage;
-                nodesData.usageMemory = "No Data";
-                nodesData.usageCpu = "No Data";
-                getNodes.items[i].status.addresses.forEach((address: any) => {
-                  if (address.type === 'InternalIP') {
-                    nodesData.address = address.address
-                  }
-                });
-                finalNodesData.push(nodesData);
+                if (getNodes.items[i].metadata.name === getNodesMetrics.items[j].metadata.name) {
+                    getNodes.items[i].status.usage = getNodesMetrics.items[j].usage;
+                }
             }
         }
-        res.send(finalNodesData);
-        // console.log(resApi);
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+        res.send(getNodes);
+        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get nodes Res: 200");
     } catch (e) {
         res.status(500);
     }
+});
+app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: any, res) => {
+    let groupId = req.params.groupId;
+    let clusterId = req.params.clusterId;
+    let namespace = req.params.namespace
+    // k8s-api endpoint
+    let pods: string = `/api/v1/namespaces/${namespace}/pods`;
+    let getPods: any = await k8sApi(groupId, clusterId, pods, "GET");
+    let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
+    let getPodsMetrics: any = await k8sApi(groupId, clusterId, podsMetrics, "GET");
+    for (let i = 0; i < getPods.items.length; i++) {
+        for (let j = 0; j < getPodsMetrics.items.length; j++) {
+            if (getPods.items[i].metadata.name === getPodsMetrics.items[j].metadata.name) {
+                getPods.items[i].spec.containers.forEach((c: any) => {
+                    getPodsMetrics.items[j].containers.forEach((cm: any) => {
+                        if (c.name === cm.name) {
+                            c.usage = cm.usage;
+                        }
+                    });
+                });
+            }
+        }
+    }
+    res.send(getPods);
+    console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
 });
 
 // Get Hourly based Container logs inside the pod. 
