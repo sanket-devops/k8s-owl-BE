@@ -331,11 +331,21 @@ app.get("/clusters/:groupId/:clusterId/nodesMetricsMix", async (req: any, res) =
         let getNodes: any = await k8sApi(groupId, clusterId, nodes, "GET");
         let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
         let getNodesMetrics: any = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
-        for (let i = 0; i < getNodes.items.length; i++) {
-            for (let j = 0; j < getNodesMetrics.items.length; j++) {
-                if (getNodes.items[i].metadata.name === getNodesMetrics.items[j].metadata.name) {
-                    getNodes.items[i].status.usage = getNodesMetrics.items[j].usage;
+        if (getNodes.items && getNodesMetrics.items) {
+            for (let i = 0; i < getNodes.items.length; i++) {
+                for (let j = 0; j < getNodesMetrics.items.length; j++) {
+                    if (getNodes.items[i].metadata.name === getNodesMetrics.items[j].metadata.name) {
+                        getNodes.items[i].status.usage = getNodesMetrics.items[j].usage;
+                    }
                 }
+            }
+        }
+        else {
+            for (let i = 0; i < getNodes.items.length; i++) {
+                getNodes.items[i].status.usage = {
+                    "cpu": "No Data",
+                    "memory": "No Data"
+                };
             }
         }
         res.send(getNodes);
@@ -351,19 +361,31 @@ app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: a
     // k8s-api endpoint
     let pods: string = `/api/v1/namespaces/${namespace}/pods`;
     let getPods: any = await k8sApi(groupId, clusterId, pods, "GET");
+    // console.log(getPods);
     let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
     let getPodsMetrics: any = await k8sApi(groupId, clusterId, podsMetrics, "GET");
-    for (let i = 0; i < getPods.items.length; i++) {
-        for (let j = 0; j < getPodsMetrics.items.length; j++) {
-            if (getPods.items[i].metadata.name === getPodsMetrics.items[j].metadata.name) {
-                getPods.items[i].spec.containers.forEach((c: any) => {
-                    getPodsMetrics.items[j].containers.forEach((cm: any) => {
-                        if (c.name === cm.name) {
-                            c.usage = cm.usage;
-                        }
+    if (getPods.items && getPodsMetrics.items) {
+        for (let i = 0; i < getPods.items.length; i++) {
+            for (let j = 0; j < getPodsMetrics.items.length; j++) {
+                if (getPods.items[i].metadata.name === getPodsMetrics.items[j].metadata.name) {
+                    getPods.items[i].spec.containers.forEach((c: any) => {
+                        getPodsMetrics.items[j].containers.forEach((cm: any) => {
+                            if (c.name === cm.name) {
+                                c.usage = cm.usage;
+                            }
+                        });
                     });
-                });
+                }
             }
+        }
+    } else {
+        for (let i = 0; i < getPods.items.length; i++) {
+            getPods.items[i].spec.containers.forEach((c: any) => {
+                c.usage = {
+                    "cpu": "No Data",
+                    "memory": "No Data"
+                };
+            });
         }
     }
     res.send(getPods);
