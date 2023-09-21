@@ -534,7 +534,7 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                             ws.close();
                             // ws.terminate();
                             console.log(`TIME OUT: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
-                        }, 60000 * 1);
+                        }, 60000 * 3);
                     })
                     response.on("end", () => {
                         console.log("Log streaming ended.");
