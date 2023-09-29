@@ -461,7 +461,7 @@ app.delete("/clusters/DeletePod/:groupId/:clusterId/:namespace/:podName", async 
         let deletePod: string = `/api/v1/namespaces/${namespace}/pods/${podName}`;
 
         res.send(await k8sApi(groupId, clusterId, deletePod, "DELETE"));
-        console.log('GroupId: ' + groupId, 'ClusterId: ' + clusterId + " => Get pods Res: 200");
+        console.log(`GroupId:  ${groupId} ClusterId: ${clusterId} => Pod: "${podName}" is deleted Res: 200`);
     } catch (e) {
         res.status(500);
     }
@@ -638,19 +638,20 @@ app.post("/clusters/cluster/deployment/update-deployment", async (req: any, res)
             let path: string = `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`;
 
             let url = data.server + path;
-            console.log(url);
             const httpsAgent = new https.Agent({
                 rejectUnauthorized: false,
                 ca: data.auth,
                 cert: data.client,
                 key: data.key
             });
-            const options = {
-                method: "GET",
-                agent: httpsAgent,
-            };
+            const config = {
+                httpsAgent: httpsAgent,
+                headers: {
+                    'Content-Type': 'application/strategic-merge-patch+json'
+                },
+            }
             try {
-                let updateDeployment = await axios.put(url, JSON.parse(reqData.data), { httpsAgent });
+                let updateDeployment = await axios.patch(url, reqData.data, config);
                 resolve(updateDeployment.data);
             } catch (error) {
                 console.log(error);
@@ -659,6 +660,24 @@ app.post("/clusters/cluster/deployment/update-deployment", async (req: any, res)
             }
         });
     });
+});
+
+// Delete Deployment.
+app.delete("/clusters/DeleteDeployment/:groupId/:clusterId/:namespace/:deploymentName", async (req: any, res) => {
+    try {
+        let groupId = req.params.groupId;
+        let clusterId = req.params.clusterId;
+        let namespace = req.params.namespace;
+        let name = req.params.deploymentName;
+
+        // k8s-api endpoint /apis/apps/v1/namespaces/${namespace}/deployments/${name}
+        let deleteDeployment: string = `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`;
+
+        res.send(await k8sApi(groupId, clusterId, deleteDeployment, "DELETE"));
+        console.log(`GroupId:  ${groupId} ClusterId: ${clusterId} => Deployment: "${name}" is deleted Res: 200`);
+    } catch (e) {
+        res.status(500);
+    }
 });
 
 module.exports = app;
