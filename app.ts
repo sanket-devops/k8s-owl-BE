@@ -42,7 +42,6 @@ const port = 8008;
 const WebSocketPort = 8009;
 let k8sModel = require("./k8s.model");
 let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.120.135:27017/k8s-owl?authSource=admin';
-// let db = "mongodb://admin:admin@192.168.10.166:32717/k8s-api-BE?authSource=admin";
 // let db = 'mongodb://service-owl:ecivreS8002lwO@192.168.10.108:27017/k8s-api-BE?authSource=admin';
 let allData = [];
 let nodemailer = require("nodemailer");
@@ -534,7 +533,7 @@ app.get("/clusters/follow/:groupId/:clusterId/:namespace/:podName/:appName/:tail
                             ws.close();
                             // ws.terminate();
                             console.log(`TIME OUT: => WS Client ${clientIp} and Path ${path} is Disconnected...`);
-                        }, 60000 * 3);
+                        }, 60000 * 5);
                     })
                     response.on("end", () => {
                         console.log("Log streaming ended.");
