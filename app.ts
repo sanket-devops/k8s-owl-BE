@@ -353,7 +353,7 @@ app.get("/clusters/:groupId/:clusterId/nodesMetricsMix", async (req: any, res) =
         res.status(500);
     }
 });
-app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: any, res) => {
+app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: any, res: any) => {
     let groupId = req.params.groupId;
     let clusterId = req.params.clusterId;
     let namespace = req.params.namespace
@@ -363,6 +363,15 @@ app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: a
     // console.log(getPods);
     let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
     let getPodsMetrics: any = await k8sApi(groupId, clusterId, podsMetrics, "GET");
+
+    // let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
+    // let getNodesMetrics: any = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
+
+    let nodes: string = `/api/v1/nodes`;
+    let getNodes: any = await k8sApi(groupId, clusterId, nodes, "GET");
+
+    console.log(getNodes.items[0].status.capacity);
+
     if (getPods.items && getPodsMetrics.items) {
         for (let i = 0; i < getPods.items.length; i++) {
             for (let j = 0; j < getPodsMetrics.items.length; j++) {
@@ -371,6 +380,7 @@ app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: a
                         getPodsMetrics.items[j].containers.forEach((cm: any) => {
                             if (c.name === cm.name) {
                                 c.usage = cm.usage;
+                                console.log(cm);
                             }
                         });
                     });
