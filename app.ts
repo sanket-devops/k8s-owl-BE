@@ -364,13 +364,8 @@ app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: a
     let podsMetrics: string = `/apis/metrics.k8s.io/v1beta1/namespaces/${namespace}/pods`;
     let getPodsMetrics: any = await k8sApi(groupId, clusterId, podsMetrics, "GET");
 
-    // let nodesMetrics: string = `/apis/metrics.k8s.io/v1beta1/nodes`;
-    // let getNodesMetrics: any = await k8sApi(groupId, clusterId, nodesMetrics, "GET");
-
     let nodes: string = `/api/v1/nodes`;
     let getNodes: any = await k8sApi(groupId, clusterId, nodes, "GET");
-
-    console.log(getNodes.items[0].status.capacity);
 
     if (getPods.items && getPodsMetrics.items) {
         for (let i = 0; i < getPods.items.length; i++) {
@@ -380,7 +375,11 @@ app.get("/clusters/:groupId/:clusterId/:namespace/podsMetricsMix", async (req: a
                         getPodsMetrics.items[j].containers.forEach((cm: any) => {
                             if (c.name === cm.name) {
                                 c.usage = cm.usage;
-                                console.log(cm);
+                                getNodes.items.forEach((node: any) => {
+                                    if (getPods.items[i].spec.nodeName === node.metadata.name) {
+                                        c.allocatable = node.status.allocatable;
+                                    }
+                                });
                             }
                         });
                     });
