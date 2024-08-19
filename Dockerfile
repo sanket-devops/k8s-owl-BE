@@ -14,7 +14,7 @@ COPY kubectl /usr/bin
 RUN cd /app && npm set progress=false && npm cache clear --force && npm install
 
 # Exposing port
-EXPOSE 8008
+EXPOSE 8008 8009
 
 #CMD ["npm", "run", "start"]
 ENTRYPOINT npm run start
