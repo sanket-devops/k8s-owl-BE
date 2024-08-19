@@ -21,3 +21,5 @@ spec:
           ports:
             - name: http-port
               containerPort: 8008
+            - name: ws-port
+              containerPort: 8009
